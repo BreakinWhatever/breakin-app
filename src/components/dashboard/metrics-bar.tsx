@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 interface Email {
   id: string;
@@ -13,13 +13,16 @@ interface Email {
 interface Outreach {
   id: string;
   status: string;
+  lastContactDate: string | null;
 }
 
 interface MetricsBarProps {
   campaignId?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
-export default function MetricsBar({ campaignId }: MetricsBarProps) {
+export default function MetricsBar({ campaignId, dateFrom, dateTo }: MetricsBarProps) {
   const [emails, setEmails] = useState<Email[]>([]);
   const [outreaches, setOutreaches] = useState<Outreach[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +43,34 @@ export default function MetricsBar({ campaignId }: MetricsBarProps) {
       .finally(() => setLoading(false));
   }, [campaignId]);
 
-  const sentEmails = emails.filter((e) => e.status === "sent");
+  // Filter by date range
+  const filteredEmails = useMemo(() => {
+    if (!dateFrom && !dateTo) return emails;
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
+    return emails.filter((e) => {
+      if (!e.sentAt) return true; // include unsent emails
+      const sent = new Date(e.sentAt);
+      if (from && sent < from) return false;
+      if (to && sent > to) return false;
+      return true;
+    });
+  }, [emails, dateFrom, dateTo]);
+
+  const filteredOutreaches = useMemo(() => {
+    if (!dateFrom && !dateTo) return outreaches;
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
+    return outreaches.filter((o) => {
+      if (!o.lastContactDate) return true;
+      const d = new Date(o.lastContactDate);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+  }, [outreaches, dateFrom, dateTo]);
+
+  const sentEmails = filteredEmails.filter((e) => e.status === "sent");
   const today = new Date().toDateString();
   const sentToday = sentEmails.filter(
     (e) => e.sentAt && new Date(e.sentAt).toDateString() === today
@@ -58,13 +88,13 @@ export default function MetricsBar({ campaignId }: MetricsBarProps) {
       ? Math.round((repliedEmails.length / sentEmails.length) * 100)
       : 0;
 
-  const interviews = outreaches.filter(
+  const interviews = filteredOutreaches.filter(
     (o) => o.status === "entretien" || o.status === "interview"
   ).length;
 
   const metrics = [
     {
-      label: "Emails envoy\u00e9s",
+      label: "Emails envoyes",
       value: loading ? "..." : `${sentEmails.length}`,
       sub: `${sentToday} aujourd'hui`,
       color: "text-blue-600",
@@ -89,9 +119,9 @@ export default function MetricsBar({ campaignId }: MetricsBarProps) {
       ),
     },
     {
-      label: "Taux de r\u00e9ponse",
+      label: "Taux de reponse",
       value: loading ? "..." : `${replyRate}%`,
-      sub: `${repliedEmails.length}/${sentEmails.length} r\u00e9ponses`,
+      sub: `${repliedEmails.length}/${sentEmails.length} reponses`,
       color: "text-purple-600",
       bg: "bg-purple-50",
       icon: (

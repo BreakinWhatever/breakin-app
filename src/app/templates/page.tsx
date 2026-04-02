@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import TemplateEditor from "@/components/templates/template-editor";
 import TemplatePreview from "@/components/templates/template-preview";
 
@@ -21,12 +21,39 @@ const categoryLabels: Record<string, string> = {
   followup_3: "Relance 3",
 };
 
+const JOB_TYPES = [
+  { value: "", label: "Tous les metiers" },
+  { value: "Private Debt", label: "Private Debt" },
+  { value: "Debt Advisory", label: "Debt Advisory" },
+  { value: "LevFin", label: "LevFin" },
+  { value: "TS", label: "TS" },
+  { value: "PE", label: "PE" },
+  { value: "M&A", label: "M&A" },
+];
+
+const LANGUAGES = [
+  { value: "", label: "Toutes les langues" },
+  { value: "fr", label: "FR" },
+  { value: "en", label: "EN" },
+];
+
+const CATEGORIES = [
+  { value: "", label: "Toutes les categories" },
+  { value: "initial", label: "Initial" },
+  { value: "followup_1", label: "Relance 1" },
+  { value: "followup_2", label: "Relance 2" },
+];
+
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+
+  const [filterJobType, setFilterJobType] = useState("");
+  const [filterLanguage, setFilterLanguage] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
 
   const fetchTemplates = useCallback(() => {
     setLoading(true);
@@ -41,6 +68,21 @@ export default function TemplatesPage() {
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  const filtered = useMemo(() => {
+    return templates.filter((t) => {
+      if (filterJobType && !t.name.toLowerCase().includes(filterJobType.toLowerCase())) {
+        return false;
+      }
+      if (filterLanguage && t.language !== filterLanguage) {
+        return false;
+      }
+      if (filterCategory && t.category !== filterCategory) {
+        return false;
+      }
+      return true;
+    });
+  }, [templates, filterJobType, filterLanguage, filterCategory]);
 
   function handleNew() {
     setEditingTemplate(null);
@@ -80,17 +122,89 @@ export default function TemplatesPage() {
         </button>
       </div>
 
+      {/* Filter bar */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap">
+              Type de metier
+            </label>
+            <select
+              value={filterJobType}
+              onChange={(e) => setFilterJobType(e.target.value)}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              {JOB_TYPES.map((jt) => (
+                <option key={jt.value} value={jt.value}>
+                  {jt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Langue
+            </label>
+            <select
+              value={filterLanguage}
+              onChange={(e) => setFilterLanguage(e.target.value)}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Categorie
+            </label>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {(filterJobType || filterLanguage || filterCategory) && (
+            <button
+              onClick={() => {
+                setFilterJobType("");
+                setFilterLanguage("");
+                setFilterCategory("");
+              }}
+              className="text-xs text-gray-400 hover:text-gray-600 ml-auto"
+            >
+              Reinitialiser les filtres
+            </button>
+          )}
+        </div>
+      </div>
+
       {loading ? (
         <div className="text-gray-400 text-sm py-12 text-center">
           Chargement...
         </div>
-      ) : templates.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-gray-400 text-sm py-12 text-center">
-          Aucun template. Cr&eacute;ez-en un pour commencer.
+          {templates.length === 0
+            ? "Aucun template. Creez-en un pour commencer."
+            : "Aucun template ne correspond aux filtres selectionnes."}
         </div>
       ) : (
         <div className="space-y-3">
-          {templates.map((t) => (
+          <p className="text-xs text-gray-400">
+            {filtered.length} template{filtered.length > 1 ? "s" : ""}{" "}
+            {filtered.length !== templates.length && `sur ${templates.length}`}
+          </p>
+          {filtered.map((t) => (
             <div
               key={t.id}
               className="bg-white rounded-xl shadow-sm border border-gray-100 p-5"
@@ -119,7 +233,7 @@ export default function TemplatesPage() {
                   <button
                     onClick={() => setPreviewTemplate(t)}
                     className="text-sm text-gray-500 hover:text-blue-600 px-2 py-1"
-                    title="Aper\u00e7u"
+                    title="Apercu"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

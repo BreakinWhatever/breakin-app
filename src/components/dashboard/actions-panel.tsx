@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 
 interface Suggestion {
   id: string;
   subject: string;
   body: string;
+  type: string;
   status: string;
   outreach: {
     id: string;
     campaignId: string;
+    status: string;
     contact: {
       firstName: string;
       lastName: string;
@@ -23,6 +25,8 @@ interface Suggestion {
   };
 }
 
+type TabKey = "envois" | "relances" | "reponses";
+
 interface ActionsPanelProps {
   campaignId?: string;
 }
@@ -32,6 +36,7 @@ export default function ActionsPanel({ campaignId }: ActionsPanelProps) {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [agentMessage, setAgentMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("envois");
 
   const fetchSuggestions = useCallback(() => {
     setLoading(true);
@@ -51,6 +56,37 @@ export default function ActionsPanel({ campaignId }: ActionsPanelProps) {
   const filtered = campaignId
     ? suggestions.filter((s) => s.outreach.campaignId === campaignId)
     : suggestions;
+
+  // Split into 3 categories
+  const envois = useMemo(
+    () => filtered.filter((s) => s.outreach.status === "identified" || s.type === "initial"),
+    [filtered]
+  );
+  const relances = useMemo(
+    () =>
+      filtered.filter(
+        (s) =>
+          s.outreach.status === "contacted" ||
+          s.outreach.status === "followed_up" ||
+          s.outreach.status === "followup_1" ||
+          s.outreach.status === "followup_2" ||
+          s.outreach.status === "followup_3" ||
+          s.type === "followup"
+      ),
+    [filtered]
+  );
+  const reponses = useMemo(
+    () => filtered.filter((s) => s.outreach.status === "replied"),
+    [filtered]
+  );
+
+  const tabs: { key: TabKey; label: string; items: Suggestion[] }[] = [
+    { key: "envois", label: "Envois", items: envois },
+    { key: "relances", label: "Relances", items: relances },
+    { key: "reponses", label: "Reponses", items: reponses },
+  ];
+
+  const activeItems = tabs.find((t) => t.key === activeTab)?.items ?? [];
 
   async function handleApproveAndSend(emailId: string) {
     setProcessing(emailId);
@@ -115,17 +151,46 @@ export default function ActionsPanel({ campaignId }: ActionsPanelProps) {
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="flex border-b border-gray-100 mb-4">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {tab.label}
+            <span
+              className={`ml-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-medium rounded-full ${
+                activeTab === tab.key
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-gray-100 text-gray-500"
+              }`}
+            >
+              {tab.items.length}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="text-gray-400 text-sm py-8 text-center">
           Chargement...
         </div>
-      ) : filtered.length === 0 ? (
+      ) : activeItems.length === 0 ? (
         <div className="text-gray-400 text-sm py-8 text-center">
-          Aucune suggestion en attente. Lancez l&apos;agent pour g&eacute;n&eacute;rer des brouillons.
+          {activeTab === "envois" && "Aucun envoi initial en attente."}
+          {activeTab === "relances" && "Aucune relance en attente."}
+          {activeTab === "reponses" && "Aucune reponse en attente."}
+          {" "}Lancez l&apos;agent pour generer des brouillons.
         </div>
       ) : (
         <div className="space-y-4">
-          {filtered.map((s) => (
+          {activeItems.map((s) => (
             <div
               key={s.id}
               className="border border-gray-100 rounded-lg p-4"

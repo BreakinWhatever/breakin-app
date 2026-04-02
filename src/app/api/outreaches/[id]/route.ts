@@ -37,6 +37,21 @@ export async function GET(
   }
 }
 
+const VALID_STATUSES = [
+  "identified",
+  "contacted",
+  "followup_1",
+  "followup_2",
+  "followup_3",
+  "replied",
+  "interview",
+  "offer",
+  // Legacy values kept for backwards compatibility
+  "followed_up",
+  "entretien",
+  "offre",
+];
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -44,6 +59,14 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
+
+    // Validate status if provided
+    if (body.status && !VALID_STATUSES.includes(body.status)) {
+      return Response.json(
+        { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` },
+        { status: 400 }
+      );
+    }
 
     // Convert date strings to Date objects if present
     if (body.lastContactDate) {

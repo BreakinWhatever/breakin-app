@@ -23,12 +23,13 @@ interface Campaign {
 }
 
 const COLUMNS = [
-  { key: "identified", label: "Identifi\u00e9", color: "bg-gray-400" },
-  { key: "contacted", label: "Contact\u00e9", color: "bg-blue-500" },
-  { key: "followed_up", label: "Relanc\u00e9", color: "bg-yellow-500" },
-  { key: "replied", label: "R\u00e9pondu", color: "bg-green-500" },
-  { key: "entretien", label: "Entretien", color: "bg-purple-500" },
-  { key: "offre", label: "Offre", color: "bg-emerald-500" },
+  { key: "contacted", label: "Contacte", color: "bg-blue-500" },
+  { key: "followup_1", label: "Relance 1", color: "bg-yellow-400" },
+  { key: "followup_2", label: "Relance 2", color: "bg-yellow-500" },
+  { key: "followup_3", label: "Relance 3", color: "bg-orange-500" },
+  { key: "replied", label: "Repondu", color: "bg-green-500" },
+  { key: "interview", label: "Entretien", color: "bg-purple-500" },
+  { key: "offer", label: "Offre", color: "bg-emerald-500" },
 ];
 
 export default function KanbanBoard() {
@@ -52,7 +53,11 @@ export default function KanbanBoard() {
     fetch(`/api/outreaches${params}`)
       .then((r) => r.json())
       .then((data) => {
-        setOutreaches(Array.isArray(data) ? data : []);
+        // Filter out "identified" — those haven't been contacted yet
+        const contacted = (Array.isArray(data) ? data : []).filter(
+          (o: OutreachData) => o.status !== "identified"
+        );
+        setOutreaches(contacted);
       })
       .finally(() => setLoading(false));
   }, [selectedCampaign]);
@@ -74,14 +79,21 @@ export default function KanbanBoard() {
 
     // Optimistic update
     setOutreaches((prev) =>
-      prev.map((o) => (o.id === outreachId ? { ...o, status: newStatus } : o))
+      prev.map((o) =>
+        o.id === outreachId
+          ? { ...o, status: newStatus, lastContactDate: new Date().toISOString() }
+          : o
+      )
     );
 
     try {
       const res = await fetch(`/api/outreaches/${outreachId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({
+          status: newStatus,
+          lastContactDate: new Date().toISOString(),
+        }),
       });
       if (!res.ok) throw new Error("Failed to update");
     } catch {
@@ -115,7 +127,7 @@ export default function KanbanBoard() {
         </select>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex gap-3 overflow-x-auto pb-4">
         {COLUMNS.map((col) => {
           const items = outreaches.filter((o) => o.status === col.key);
           return (
@@ -123,7 +135,7 @@ export default function KanbanBoard() {
               key={col.key}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.key)}
-              className="flex-shrink-0 w-64 bg-gray-50 rounded-xl p-3"
+              className="flex-shrink-0 w-56 bg-gray-50 rounded-xl p-3"
             >
               <div className="flex items-center gap-2 mb-3">
                 <div className={`w-2.5 h-2.5 rounded-full ${col.color}`} />

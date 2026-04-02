@@ -141,6 +141,9 @@ export default function CampaignForm({
                 </option>
               ))}
             </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Choisissez un template correspondant au role cible (ex: un template Private Debt pour une campagne Private Debt)
+            </p>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

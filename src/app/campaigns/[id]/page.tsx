@@ -50,29 +50,44 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
 };
 
 const outreachStatusLabels: Record<string, string> = {
-  identified: "Identifi\u00e9",
-  contacted: "Contact\u00e9",
-  followed_up: "Relanc\u00e9",
-  replied: "R\u00e9pondu",
+  identified: "Identifie",
+  contacted: "Contacte",
+  followup_1: "Relance 1",
+  followup_2: "Relance 2",
+  followup_3: "Relance 3",
+  followed_up: "Relance",
+  replied: "Repondu",
+  interview: "Entretien",
   entretien: "Entretien",
+  offer: "Offre",
   offre: "Offre",
 };
 
 const outreachStatusColors: Record<string, string> = {
   identified: "bg-gray-100 text-gray-600",
   contacted: "bg-blue-100 text-blue-700",
+  followup_1: "bg-yellow-100 text-yellow-700",
+  followup_2: "bg-yellow-100 text-yellow-700",
+  followup_3: "bg-orange-100 text-orange-700",
   followed_up: "bg-yellow-100 text-yellow-700",
   replied: "bg-green-100 text-green-700",
+  interview: "bg-purple-100 text-purple-700",
   entretien: "bg-purple-100 text-purple-700",
+  offer: "bg-emerald-100 text-emerald-700",
   offre: "bg-emerald-100 text-emerald-700",
 };
 
 const pipelineBarColors: Record<string, string> = {
   identified: "bg-gray-400",
   contacted: "bg-blue-500",
+  followup_1: "bg-yellow-400",
+  followup_2: "bg-yellow-500",
+  followup_3: "bg-orange-500",
   followed_up: "bg-yellow-500",
   replied: "bg-green-500",
+  interview: "bg-purple-500",
   entretien: "bg-purple-500",
+  offer: "bg-emerald-500",
   offre: "bg-emerald-500",
 };
 
@@ -132,10 +147,12 @@ export default function CampaignDetailPage() {
   const pipelineStatuses = [
     "identified",
     "contacted",
-    "followed_up",
+    "followup_1",
+    "followup_2",
+    "followup_3",
     "replied",
-    "entretien",
-    "offre",
+    "interview",
+    "offer",
   ];
   const pipelineCounts = pipelineStatuses.map((s) => ({
     key: s,
@@ -201,7 +218,21 @@ export default function CampaignDetailPage() {
           </span>
         </div>
 
-        <div className="text-xs text-gray-400 mt-2">
+        {/* Matching criteria banner */}
+        <div className="mt-4 flex flex-wrap items-center gap-3 bg-blue-50 rounded-lg px-4 py-3">
+          <span className="text-xs font-medium text-blue-700 uppercase tracking-wide">
+            Criteres de matching
+          </span>
+          <span className="text-sm text-blue-900 font-medium">
+            Role : {campaign.targetRole}
+          </span>
+          <span className="text-blue-300">|</span>
+          <span className="text-sm text-blue-900 font-medium">
+            Ville : {campaign.targetCity}
+          </span>
+        </div>
+
+        <div className="text-xs text-gray-400 mt-3">
           Template : {campaign.template?.name || "-"}
         </div>
       </div>

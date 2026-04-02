@@ -19,7 +19,7 @@ export async function GET() {
     // - nextActionType is not "none"
     const pending = await prisma.outreach.findMany({
       where: {
-        status: { in: ["contacted", "followed_up"] },
+        status: { in: ["contacted", "followed_up", "followup_1", "followup_2", "followup_3"] },
         nextActionDate: { lte: now },
         NOT: { nextActionType: "none" },
       },
