@@ -17,9 +17,10 @@ export async function POST(request: NextRequest) {
 
     return Response.json(result);
   } catch (error) {
-    console.error("POST /api/apollo/search error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("POST /api/apollo/search error:", message);
     return Response.json(
-      { error: "Failed to search Apollo" },
+      { error: message },
       { status: 500 }
     );
   }

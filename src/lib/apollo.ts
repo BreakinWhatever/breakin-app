@@ -1,8 +1,14 @@
 // Apollo API Client for BreakIn
 // Docs: https://apolloio.github.io/apollo-api-docs/
 
+import { prisma } from "@/lib/db";
+
 const APOLLO_BASE_URL = "https://api.apollo.io";
-const APOLLO_API_KEY = process.env.APOLLO_API_KEY ?? "";
+
+async function getApolloApiKey(): Promise<string> {
+  const setting = await prisma.setting.findUnique({ where: { key: "apolloApiKey" } });
+  return setting?.value || process.env.APOLLO_API_KEY || "";
+}
 
 // ---------- Types ----------
 
@@ -116,13 +122,14 @@ export function mapApolloOrgToCompany(org: ApolloOrg): MappedCompany {
 // ---------- API Calls ----------
 
 export async function searchPeople(input: ApolloSearchInput) {
+  const apiKey = await getApolloApiKey();
   const searchParams = buildSearchParams(input);
 
-  const response = await fetch(`${APOLLO_BASE_URL}/v1/mixed_people/search`, {
+  const response = await fetch(`${APOLLO_BASE_URL}/v1/mixed_people/api_search`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Api-Key": APOLLO_API_KEY,
+      "X-Api-Key": apiKey,
     },
     body: JSON.stringify(searchParams),
   });
@@ -149,12 +156,66 @@ export async function searchPeople(input: ApolloSearchInput) {
   };
 }
 
+export async function revealPerson(personId: string) {
+  const apiKey = await getApolloApiKey();
+
+  const response = await fetch(`${APOLLO_BASE_URL}/v1/people/match`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Api-Key": apiKey,
+    },
+    body: JSON.stringify({
+      id: personId,
+      reveal_personal_emails: false,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Apollo reveal error ${response.status}: ${text}`);
+  }
+
+  const data = await response.json();
+  const person = data.person ?? data;
+
+  return {
+    firstName: person.first_name ?? "",
+    lastName: person.last_name ?? "",
+    title: person.title ?? "",
+    email: person.email ?? null,
+    linkedinUrl: person.linkedin_url ?? null,
+    apolloId: person.id,
+    source: "apollo" as const,
+    apolloOrgId: person.organization?.id ?? null,
+    apolloOrgName: person.organization?.name ?? null,
+    apolloOrgCity: person.organization?.city ?? null,
+    apolloOrgCountry: person.organization?.country ?? null,
+  };
+}
+
+export async function revealPeople(personIds: string[]) {
+  const results = [];
+  for (const id of personIds) {
+    try {
+      const revealed = await revealPerson(id);
+      if (revealed.email) {
+        results.push(revealed);
+      }
+    } catch {
+      // Skip failed reveals (e.g., out of credits)
+    }
+  }
+  return results;
+}
+
 export async function sendEmail(options: SendEmailOptions) {
+  const apiKey = await getApolloApiKey();
   const response = await fetch(`${APOLLO_BASE_URL}/v1/emailer/send`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Api-Key": APOLLO_API_KEY,
+      "X-Api-Key": apiKey,
     },
     body: JSON.stringify({
       email_account_id: options.emailAccountId,
