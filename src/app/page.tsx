@@ -17,13 +17,19 @@ export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState("");
 
-  // Default period: last 30 days
-  const [dateFrom, setDateFrom] = useState(() => {
+  // Initialize dates only on client side to avoid hydration mismatch
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const now = new Date();
     const d = new Date();
     d.setDate(d.getDate() - 30);
-    return formatDateForInput(d);
-  });
-  const [dateTo, setDateTo] = useState(() => formatDateForInput(new Date()));
+    setDateFrom(formatDateForInput(d));
+    setDateTo(formatDateForInput(now));
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     fetch("/api/campaigns")
@@ -32,6 +38,14 @@ export default function DashboardPage() {
         setCampaigns(Array.isArray(data) ? data : []);
       });
   }, []);
+
+  if (!mounted) {
+    return (
+      <div className="text-gray-400 text-sm py-12 text-center">
+        Chargement...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

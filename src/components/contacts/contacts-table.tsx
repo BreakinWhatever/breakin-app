@@ -14,6 +14,7 @@ interface Contact {
   company: {
     id: string;
     name: string;
+    website: string | null;
   };
 }
 
@@ -29,6 +30,50 @@ const priorityColors: Record<number, string> = {
   4: "bg-blue-100 text-blue-700",
   5: "bg-gray-100 text-gray-600",
 };
+
+function extractDomain(website: string): string {
+  try {
+    const url = website.startsWith("http") ? website : `https://${website}`;
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return website.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
+  }
+}
+
+function CompanyLogo({
+  companyName,
+  companyWebsite,
+  size = 24,
+}: {
+  companyName: string;
+  companyWebsite?: string | null;
+  size?: number;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const domain = companyWebsite ? extractDomain(companyWebsite) : null;
+
+  if (!domain || imgError) {
+    return (
+      <span
+        className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-500 text-xs font-medium flex-shrink-0"
+        style={{ width: size, height: size, fontSize: size * 0.45 }}
+      >
+        {companyName.charAt(0).toUpperCase()}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={`https://logo.clearbit.com/${domain}`}
+      alt={companyName}
+      width={size}
+      height={size}
+      className="rounded-full flex-shrink-0 bg-gray-100"
+      onError={() => setImgError(true)}
+    />
+  );
+}
 
 export default function ContactsTable() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -99,7 +144,7 @@ export default function ContactsTable() {
             onChange={(e) => setFilterPriority(e.target.value)}
             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
           >
-            <option value="">Toutes les priorit&eacute;s</option>
+            <option value="">Toutes les priorites</option>
             <option value="1">P1</option>
             <option value="2">P2</option>
             <option value="3">P3</option>
@@ -125,7 +170,7 @@ export default function ContactsTable() {
                 Email
               </th>
               <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                Priorit&eacute;
+                Priorite
               </th>
               <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
                 Source
@@ -142,7 +187,7 @@ export default function ContactsTable() {
             ) : contacts.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center py-8 text-gray-400 text-sm">
-                  Aucun contact trouv&eacute;
+                  Aucun contact trouve
                 </td>
               </tr>
             ) : (
@@ -165,8 +210,13 @@ export default function ContactsTable() {
                   <td className="px-4 py-3">
                     <Link
                       href={`/companies/${c.company.id}`}
-                      className="text-sm text-blue-600 hover:text-blue-700"
+                      className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
                     >
+                      <CompanyLogo
+                        companyName={c.company.name}
+                        companyWebsite={c.company.website}
+                        size={24}
+                      />
                       {c.company.name}
                     </Link>
                   </td>

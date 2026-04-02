@@ -24,10 +24,11 @@ const categoryLabels: Record<string, string> = {
 const JOB_TYPES = [
   { value: "", label: "Tous les metiers" },
   { value: "Private Debt", label: "Private Debt" },
+  { value: "Private Credit", label: "Private Credit" },
   { value: "Debt Advisory", label: "Debt Advisory" },
-  { value: "LevFin", label: "LevFin" },
-  { value: "TS", label: "TS" },
-  { value: "PE", label: "PE" },
+  { value: "Leverage Finance", label: "Leverage Finance" },
+  { value: "Transaction Services", label: "Transaction Services" },
+  { value: "Private Equity", label: "Private Equity" },
   { value: "M&A", label: "M&A" },
 ];
 

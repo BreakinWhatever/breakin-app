@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import KanbanCard from "./kanban-card";
 
 interface OutreachData {
@@ -13,6 +13,7 @@ interface OutreachData {
     priority: number;
     company: {
       name: string;
+      website: string | null;
     };
   };
 }
@@ -22,7 +23,13 @@ interface Campaign {
   name: string;
 }
 
-const COLUMNS = [
+interface ColumnDef {
+  key: string;
+  label: string;
+  color: string;
+}
+
+const BASE_COLUMNS: ColumnDef[] = [
   { key: "contacted", label: "Contacte", color: "bg-blue-500" },
   { key: "followup_1", label: "Relance 1", color: "bg-yellow-400" },
   { key: "followup_2", label: "Relance 2", color: "bg-yellow-500" },
@@ -37,6 +44,7 @@ export default function KanbanBoard() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState("");
   const [loading, setLoading] = useState(true);
+  const [followUpSpacing, setFollowUpSpacing] = useState<number[]>([3, 7, 14]);
 
   useEffect(() => {
     fetch("/api/campaigns")
@@ -45,6 +53,50 @@ export default function KanbanBoard() {
         setCampaigns(Array.isArray(data) ? data : []);
       });
   }, []);
+
+  // Fetch follow-up spacing from settings
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.followUpSpacing) {
+          try {
+            const parsed = JSON.parse(data.followUpSpacing);
+            if (Array.isArray(parsed)) {
+              setFollowUpSpacing(parsed);
+            }
+          } catch {
+            // Try comma-separated format: "3,7,14"
+            const parts = data.followUpSpacing
+              .split(",")
+              .map((s: string) => parseInt(s.trim(), 10))
+              .filter((n: number) => !isNaN(n));
+            if (parts.length > 0) {
+              setFollowUpSpacing(parts);
+            }
+          }
+        }
+      })
+      .catch(() => {
+        // Keep defaults
+      });
+  }, []);
+
+  // Build columns with dynamic relance day labels
+  const columns = useMemo(() => {
+    return BASE_COLUMNS.map((col) => {
+      if (col.key === "followup_1" && followUpSpacing[0] !== undefined) {
+        return { ...col, label: `Relance 1 (J+${followUpSpacing[0]})` };
+      }
+      if (col.key === "followup_2" && followUpSpacing[1] !== undefined) {
+        return { ...col, label: `Relance 2 (J+${followUpSpacing[1]})` };
+      }
+      if (col.key === "followup_3" && followUpSpacing[2] !== undefined) {
+        return { ...col, label: `Relance 3 (J+${followUpSpacing[2]})` };
+      }
+      return col;
+    });
+  }, [followUpSpacing]);
 
   const fetchOutreaches = useCallback(() => {
     const params = selectedCampaign
@@ -128,7 +180,7 @@ export default function KanbanBoard() {
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-4">
-        {COLUMNS.map((col) => {
+        {columns.map((col) => {
           const items = outreaches.filter((o) => o.status === col.key);
           return (
             <div
@@ -153,6 +205,7 @@ export default function KanbanBoard() {
                     id={o.id}
                     contactName={`${o.contact.firstName} ${o.contact.lastName}`}
                     companyName={o.contact.company.name}
+                    companyWebsite={o.contact.company.website}
                     priority={o.contact.priority}
                     lastContactDate={o.lastContactDate}
                   />
