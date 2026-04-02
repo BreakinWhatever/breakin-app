@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  sector    String
+  size      String   @default("")
+  city      String
+  country   String
+  website   String?
+  apolloId  String?  @unique
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts Contact[]
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  firstName   String
+  lastName    String
+  companyId   String
+  title       String
+  email       String   @unique
+  linkedinUrl String?
+  apolloId    String?  @unique
+  priority    Int      @default(3)
+  source      String   @default("manual")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company    Company    @relation(fields: [companyId], references: [id])
+  outreaches Outreach[]
+}
+
+model Campaign {
+  id         String   @id @default(cuid())
+  name       String
+  targetRole String
+  targetCity String
+  templateId String?
+  status     String   @default("draft")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  template   Template?  @relation(fields: [templateId], references: [id])
+  outreaches Outreach[]
+}
+
+model Outreach {
+  id              String    @id @default(cuid())
+  contactId       String
+  campaignId      String
+  status          String    @default("identified")
+  lastContactDate DateTime?
+  nextActionDate  DateTime?
+  nextActionType  String?
+  aiSuggestion    String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  contact  Contact  @relation(fields: [contactId], references: [id])
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  emails   Email[]
+
+  @@unique([contactId, campaignId])
+}
+
+model Email {
+  id         String    @id @default(cuid())
+  outreachId String
+  type       String    @default("initial")
+  subject    String
+  body       String
+  sentAt     DateTime?
+  openedAt   DateTime?
+  repliedAt  DateTime?
+  status     String    @default("draft")
+  createdAt  DateTime  @default(now())
+
+  outreach Outreach @relation(fields: [outreachId], references: [id])
+}
+
+model Template {
+  id        String   @id @default(cuid())
+  name      String
+  subject   String
+  body      String
+  variables String   @default("[]")
+  language  String   @default("fr")
+  category  String   @default("initial")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaigns Campaign[]
+}
+
+model Setting {
+  key   String @id
+  value String
+}
