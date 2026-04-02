@@ -17,6 +17,11 @@ interface Contact {
   };
 }
 
+interface Company {
+  id: string;
+  name: string;
+}
+
 const priorityColors: Record<number, string> = {
   1: "bg-red-100 text-red-700",
   2: "bg-orange-100 text-orange-700",
@@ -27,22 +32,39 @@ const priorityColors: Record<number, string> = {
 
 export default function ContactsTable() {
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch] = useState("");
+  const [filterCompany, setFilterCompany] = useState("");
+  const [filterSource, setFilterSource] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const params = search ? `?search=${encodeURIComponent(search)}` : "";
-    fetch(`/api/contacts${params}`)
+    fetch("/api/companies")
+      .then((r) => r.json())
+      .then((data) => {
+        setCompanies(Array.isArray(data) ? data : []);
+      });
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (filterCompany) params.set("companyId", filterCompany);
+    if (filterSource) params.set("source", filterSource);
+    if (filterPriority) params.set("priority", filterPriority);
+    const qs = params.toString();
+    fetch(`/api/contacts${qs ? `?${qs}` : ""}`)
       .then((r) => r.json())
       .then((data) => {
         setContacts(Array.isArray(data) ? data : []);
       })
       .finally(() => setLoading(false));
-  }, [search]);
+  }, [search, filterCompany, filterSource, filterPriority]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-4 border-b border-gray-100 space-y-3">
         <input
           type="text"
           placeholder="Rechercher un contact..."
@@ -50,6 +72,41 @@ export default function ContactsTable() {
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-md px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={filterCompany}
+            onChange={(e) => setFilterCompany(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+          >
+            <option value="">Toutes les entreprises</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filterSource}
+            onChange={(e) => setFilterSource(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+          >
+            <option value="">Toutes les sources</option>
+            <option value="apollo">Apollo</option>
+            <option value="manual">Manuel</option>
+          </select>
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+          >
+            <option value="">Toutes les priorit&eacute;s</option>
+            <option value="1">P1</option>
+            <option value="2">P2</option>
+            <option value="3">P3</option>
+            <option value="4">P4</option>
+            <option value="5">P5</option>
+          </select>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">

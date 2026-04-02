@@ -9,6 +9,8 @@ interface Email {
   type: string;
   status: string;
   sentAt: string | null;
+  openedAt: string | null;
+  repliedAt: string | null;
 }
 
 interface Outreach {
@@ -56,6 +58,24 @@ const outreachStatusLabels: Record<string, string> = {
   offre: "Offre",
 };
 
+const outreachStatusColors: Record<string, string> = {
+  identified: "bg-gray-100 text-gray-600",
+  contacted: "bg-blue-100 text-blue-700",
+  followed_up: "bg-yellow-100 text-yellow-700",
+  replied: "bg-green-100 text-green-700",
+  entretien: "bg-purple-100 text-purple-700",
+  offre: "bg-emerald-100 text-emerald-700",
+};
+
+const pipelineBarColors: Record<string, string> = {
+  identified: "bg-gray-400",
+  contacted: "bg-blue-500",
+  followed_up: "bg-yellow-500",
+  replied: "bg-green-500",
+  entretien: "bg-purple-500",
+  offre: "bg-emerald-500",
+};
+
 const priorityColors: Record<number, string> = {
   1: "bg-red-100 text-red-700",
   2: "bg-orange-100 text-orange-700",
@@ -92,14 +112,73 @@ export default function CampaignDetailPage() {
   }
 
   const config = statusConfig[campaign.status] || statusConfig.draft;
-  const totalEmails = campaign.outreaches.reduce(
-    (acc, o) => acc + o.emails.length,
-    0
-  );
-  const sentEmails = campaign.outreaches.reduce(
-    (acc, o) => acc + o.emails.filter((e) => e.status === "sent").length,
-    0
-  );
+
+  // Compute real stats
+  const totalContacts = campaign.outreaches.length;
+  const allEmails = campaign.outreaches.flatMap((o) => o.emails);
+  const sentEmails = allEmails.filter((e) => e.status === "sent");
+  const emailsSent = sentEmails.length;
+  const openedEmails = sentEmails.filter((e) => e.openedAt);
+  const openRate =
+    emailsSent > 0 ? Math.round((openedEmails.length / emailsSent) * 100) : 0;
+  const repliedEmails = sentEmails.filter((e) => e.repliedAt);
+  const replyRate =
+    emailsSent > 0 ? Math.round((repliedEmails.length / emailsSent) * 100) : 0;
+  const interviews = campaign.outreaches.filter(
+    (o) => o.status === "entretien" || o.status === "interview"
+  ).length;
+
+  // Pipeline counts per status
+  const pipelineStatuses = [
+    "identified",
+    "contacted",
+    "followed_up",
+    "replied",
+    "entretien",
+    "offre",
+  ];
+  const pipelineCounts = pipelineStatuses.map((s) => ({
+    key: s,
+    label: outreachStatusLabels[s] || s,
+    count: campaign.outreaches.filter((o) => o.status === s).length,
+    color: pipelineBarColors[s] || "bg-gray-400",
+  }));
+  const totalForBar = pipelineCounts.reduce((acc, p) => acc + p.count, 0);
+
+  const statsCards = [
+    {
+      label: "Contacts",
+      value: totalContacts,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+    },
+    {
+      label: "Emails envoy\u00e9s",
+      value: emailsSent,
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
+    },
+    {
+      label: "Taux d'ouverture",
+      value: `${openRate}%`,
+      sub: `${openedEmails.length}/${emailsSent}`,
+      color: "text-green-600",
+      bg: "bg-green-50",
+    },
+    {
+      label: "Taux de r\u00e9ponse",
+      value: `${replyRate}%`,
+      sub: `${repliedEmails.length}/${emailsSent}`,
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+    },
+    {
+      label: "Entretiens",
+      value: interviews,
+      color: "text-yellow-600",
+      bg: "bg-yellow-50",
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -122,30 +201,63 @@ export default function CampaignDetailPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Contacts</p>
-            <p className="text-lg font-bold text-gray-900 mt-1">
-              {campaign.outreaches.length}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Emails envoy&eacute;s</p>
-            <p className="text-lg font-bold text-gray-900 mt-1">{sentEmails}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Total emails</p>
-            <p className="text-lg font-bold text-gray-900 mt-1">{totalEmails}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Template</p>
-            <p className="text-sm text-gray-900 mt-1">
-              {campaign.template?.name || "-"}
-            </p>
-          </div>
+        <div className="text-xs text-gray-400 mt-2">
+          Template : {campaign.template?.name || "-"}
         </div>
       </div>
 
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {statsCards.map((s) => (
+          <div
+            key={s.label}
+            className="bg-white rounded-xl shadow-sm border border-gray-100 p-4"
+          >
+            <p className="text-xs text-gray-400 uppercase font-medium">{s.label}</p>
+            <p className={`text-xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+            {s.sub && <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* Pipeline mini-view */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">Pipeline</h2>
+        {totalForBar > 0 ? (
+          <>
+            <div className="flex rounded-lg overflow-hidden h-6">
+              {pipelineCounts
+                .filter((p) => p.count > 0)
+                .map((p) => (
+                  <div
+                    key={p.key}
+                    className={`${p.color} flex items-center justify-center text-xs font-medium text-white`}
+                    style={{
+                      width: `${(p.count / totalForBar) * 100}%`,
+                      minWidth: "2rem",
+                    }}
+                  >
+                    {p.count}
+                  </div>
+                ))}
+            </div>
+            <div className="flex flex-wrap gap-3 mt-3">
+              {pipelineCounts.map((p) => (
+                <div key={p.key} className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <div className={`w-2.5 h-2.5 rounded-full ${p.color}`} />
+                  <span>
+                    {p.label} ({p.count})
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-gray-400">Aucun outreach</p>
+        )}
+      </div>
+
+      {/* Outreaches table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Outreaches ({campaign.outreaches.length})
@@ -202,7 +314,11 @@ export default function CampaignDetailPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          outreachStatusColors[o.status] || "bg-gray-100 text-gray-600"
+                        }`}
+                      >
                         {outreachStatusLabels[o.status] || o.status}
                       </span>
                     </td>

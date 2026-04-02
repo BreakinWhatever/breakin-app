@@ -8,9 +8,12 @@ export async function GET(request: NextRequest) {
     const source = searchParams.get("source");
     const search = searchParams.get("search");
 
+    const priority = searchParams.get("priority");
+
     const where: Record<string, unknown> = {};
     if (companyId) where.companyId = companyId;
     if (source) where.source = source;
+    if (priority) where.priority = parseInt(priority, 10);
     if (search) {
       where.OR = [
         { firstName: { contains: search } },

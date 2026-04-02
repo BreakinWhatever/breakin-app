@@ -6,10 +6,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const outreachId = searchParams.get("outreachId");
     const status = searchParams.get("status");
+    const campaignId = searchParams.get("campaignId");
 
     const where: Record<string, unknown> = {};
     if (outreachId) where.outreachId = outreachId;
     if (status) where.status = status;
+    if (campaignId) where.outreach = { campaignId };
 
     const emails = await prisma.email.findMany({
       where,

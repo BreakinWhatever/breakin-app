@@ -9,6 +9,7 @@ interface Suggestion {
   status: string;
   outreach: {
     id: string;
+    campaignId: string;
     contact: {
       firstName: string;
       lastName: string;
@@ -22,7 +23,11 @@ interface Suggestion {
   };
 }
 
-export default function ActionsPanel() {
+interface ActionsPanelProps {
+  campaignId?: string;
+}
+
+export default function ActionsPanel({ campaignId }: ActionsPanelProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -41,6 +46,11 @@ export default function ActionsPanel() {
   useEffect(() => {
     fetchSuggestions();
   }, [fetchSuggestions]);
+
+  // Filter suggestions client-side by campaignId
+  const filtered = campaignId
+    ? suggestions.filter((s) => s.outreach.campaignId === campaignId)
+    : suggestions;
 
   async function handleApproveAndSend(emailId: string) {
     setProcessing(emailId);
@@ -109,13 +119,13 @@ export default function ActionsPanel() {
         <div className="text-gray-400 text-sm py-8 text-center">
           Chargement...
         </div>
-      ) : suggestions.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-gray-400 text-sm py-8 text-center">
           Aucune suggestion en attente. Lancez l&apos;agent pour g&eacute;n&eacute;rer des brouillons.
         </div>
       ) : (
         <div className="space-y-4">
-          {suggestions.map((s) => (
+          {filtered.map((s) => (
             <div
               key={s.id}
               className="border border-gray-100 rounded-lg p-4"

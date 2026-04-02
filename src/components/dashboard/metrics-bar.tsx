@@ -15,22 +15,30 @@ interface Outreach {
   status: string;
 }
 
-export default function MetricsBar() {
+interface MetricsBarProps {
+  campaignId?: string;
+}
+
+export default function MetricsBar({ campaignId }: MetricsBarProps) {
   const [emails, setEmails] = useState<Email[]>([]);
   const [outreaches, setOutreaches] = useState<Outreach[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
+    const emailParams = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
+    const outreachParams = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
+
     Promise.all([
-      fetch("/api/emails").then((r) => r.json()),
-      fetch("/api/outreaches").then((r) => r.json()),
+      fetch(`/api/emails${emailParams}`).then((r) => r.json()),
+      fetch(`/api/outreaches${outreachParams}`).then((r) => r.json()),
     ])
       .then(([emailData, outreachData]) => {
         setEmails(Array.isArray(emailData) ? emailData : []);
         setOutreaches(Array.isArray(outreachData) ? outreachData : []);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [campaignId]);
 
   const sentEmails = emails.filter((e) => e.status === "sent");
   const today = new Date().toDateString();
