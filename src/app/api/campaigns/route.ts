@@ -50,9 +50,10 @@ export async function POST(request: NextRequest) {
 
     return Response.json(campaign, { status: 201 });
   } catch (error) {
-    console.error("POST /api/campaigns error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("POST /api/campaigns error:", message);
     return Response.json(
-      { error: "Failed to create campaign" },
+      { error: message },
       { status: 500 }
     );
   }
