@@ -76,9 +76,13 @@ export async function PUT(
       body.nextActionDate = new Date(body.nextActionDate);
     }
 
-    const outreach = await prisma.outreach.update({
+    await prisma.outreach.update({
       where: { id },
       data: body,
+    });
+
+    const outreach = await prisma.outreach.findUnique({
+      where: { id },
       include: {
         contact: { include: { company: true } },
         campaign: true,

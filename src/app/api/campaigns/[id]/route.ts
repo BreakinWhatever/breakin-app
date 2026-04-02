@@ -45,9 +45,13 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const campaign = await prisma.campaign.update({
+    await prisma.campaign.update({
       where: { id },
       data: body,
+    });
+
+    const campaign = await prisma.campaign.findUnique({
+      where: { id },
       include: { template: true },
     });
 

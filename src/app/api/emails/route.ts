@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const email = await prisma.email.create({
+    const created = await prisma.email.create({
       data: {
         outreachId,
         subject,
@@ -56,6 +56,10 @@ export async function POST(request: NextRequest) {
         type: body.type ?? "initial",
         status: "draft",
       },
+    });
+
+    const email = await prisma.email.findUnique({
+      where: { id: created.id },
       include: {
         outreach: true,
       },

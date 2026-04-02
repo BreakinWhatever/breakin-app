@@ -42,9 +42,13 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const contact = await prisma.contact.update({
+    await prisma.contact.update({
       where: { id },
       data: body,
+    });
+
+    const contact = await prisma.contact.findUnique({
+      where: { id },
       include: { company: true },
     });
 

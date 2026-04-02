@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const outreach = await prisma.outreach.create({
+    const created = await prisma.outreach.create({
       data: {
         contactId,
         campaignId,
@@ -77,6 +77,10 @@ export async function POST(request: NextRequest) {
         aiSuggestion: body.aiSuggestion ?? null,
         notes: body.notes ?? null,
       },
+    });
+
+    const outreach = await prisma.outreach.findUnique({
+      where: { id: created.id },
       include: {
         contact: { include: { company: true } },
         campaign: true,

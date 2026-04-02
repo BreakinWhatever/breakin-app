@@ -43,12 +43,14 @@ export async function POST(request: NextRequest) {
         templateId: body.templateId ?? null,
         status: body.status ?? "draft",
       },
-      include: {
-        template: true,
-      },
     });
 
-    return Response.json(campaign, { status: 201 });
+    const full = await prisma.campaign.findUnique({
+      where: { id: campaign.id },
+      include: { template: true },
+    });
+
+    return Response.json(full, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("POST /api/campaigns error:", message);

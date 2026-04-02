@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const contact = await prisma.contact.create({
+    const created = await prisma.contact.create({
       data: {
         firstName,
         lastName,
@@ -66,6 +66,10 @@ export async function POST(request: NextRequest) {
         source: body.source ?? "manual",
         notes: body.notes ?? null,
       },
+    });
+
+    const contact = await prisma.contact.findUnique({
+      where: { id: created.id },
       include: { company: true },
     });
 
