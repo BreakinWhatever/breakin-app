@@ -1,0 +1,8 @@
+.git
+dev.db
+test.db
+*.db-journal
+tests/
+docs/
+prisma/seed.mts
+public/cv/
