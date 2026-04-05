@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Search, Building2, MapPin, Users } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Company {
   id: string;
@@ -24,41 +31,6 @@ function extractDomain(website: string): string {
   }
 }
 
-function CompanyLogo({
-  companyName,
-  companyWebsite,
-  size = 32,
-}: {
-  companyName: string;
-  companyWebsite?: string | null;
-  size?: number;
-}) {
-  const [imgError, setImgError] = useState(false);
-  const domain = companyWebsite ? extractDomain(companyWebsite) : null;
-
-  if (!domain || imgError) {
-    return (
-      <span
-        className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-500 font-medium flex-shrink-0"
-        style={{ width: size, height: size, fontSize: size * 0.4 }}
-      >
-        {companyName.charAt(0).toUpperCase()}
-      </span>
-    );
-  }
-
-  return (
-    <img
-      src={`https://logo.clearbit.com/${domain}`}
-      alt={companyName}
-      width={size}
-      height={size}
-      className="rounded-full flex-shrink-0 bg-gray-100"
-      onError={() => setImgError(true)}
-    />
-  );
-}
-
 export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch] = useState("");
@@ -76,66 +48,80 @@ export default function CompaniesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Entreprises</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Les entreprises dans votre pipeline
-        </p>
-      </div>
+      <PageHeader
+        title="Entreprises"
+        description="Les entreprises dans votre pipeline"
+      />
 
-      <div>
-        <input
-          type="text"
-          placeholder="Rechercher une entreprise..."
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+        <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-md px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Rechercher une entreprise..."
+          className="pl-8"
         />
       </div>
 
       {loading ? (
-        <div className="text-gray-400 text-sm py-12 text-center">
-          Chargement...
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-xl" />
+          ))}
         </div>
       ) : companies.length === 0 ? (
-        <div className="text-gray-400 text-sm py-12 text-center">
-          Aucune entreprise trouvee
-        </div>
+        <EmptyState
+          icon={Building2}
+          title="Aucune entreprise"
+          description="Aucune entreprise trouvee dans votre pipeline."
+        />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {companies.map((c) => (
-            <Link
-              key={c.id}
-              href={`/companies/${c.id}`}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow block"
-            >
-              <div className="flex items-center gap-3">
-                <CompanyLogo
-                  companyName={c.name}
-                  companyWebsite={c.website}
-                  size={32}
-                />
-                <div className="min-w-0">
-                  <h3 className="text-base font-semibold text-gray-900 truncate">
-                    {c.name}
-                  </h3>
-                  <p className="text-sm text-gray-500">{c.sector}</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between mt-3">
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span>{c.city}, {c.country}</span>
-                </div>
-                <span className="text-xs text-gray-400">
-                  {c._count?.contacts ?? 0} contact(s)
-                </span>
-              </div>
-            </Link>
-          ))}
+          {companies.map((c) => {
+            const domain = c.website ? extractDomain(c.website) : null;
+            return (
+              <Link key={c.id} href={`/companies/${c.id}`}>
+                <Card className="transition-shadow hover:shadow-md cursor-pointer h-full">
+                  <CardContent>
+                    <div className="flex items-center gap-3">
+                      <Avatar size="default">
+                        {domain && (
+                          <AvatarImage
+                            src={`https://logo.clearbit.com/${domain}`}
+                            alt={c.name}
+                          />
+                        )}
+                        <AvatarFallback>
+                          {c.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold truncate">
+                          {c.name}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {c.sector}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-3">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <MapPin className="size-3" />
+                        <span>
+                          {c.city}, {c.country}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users className="size-3" />
+                        <span>{c._count?.contacts ?? 0}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

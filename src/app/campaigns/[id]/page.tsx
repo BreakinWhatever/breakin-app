@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { type ColumnDef } from "@tanstack/react-table";
+import { ArrowLeft, Users } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { MetricsCard } from "@/components/shared/metrics-card";
+import { DataTable } from "@/components/shared/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface Email {
   id: string;
@@ -43,10 +53,13 @@ interface CampaignDetail {
   outreaches: Outreach[];
 }
 
-const statusConfig: Record<string, { label: string; classes: string }> = {
-  draft: { label: "Brouillon", classes: "bg-gray-100 text-gray-600" },
-  active: { label: "Active", classes: "bg-green-100 text-green-700" },
-  paused: { label: "En pause", classes: "bg-yellow-100 text-yellow-700" },
+const statusConfig: Record<
+  string,
+  { label: string; variant: "default" | "secondary" | "outline" }
+> = {
+  draft: { label: "Brouillon", variant: "secondary" },
+  active: { label: "Active", variant: "default" },
+  paused: { label: "En pause", variant: "outline" },
 };
 
 const outreachStatusLabels: Record<string, string> = {
@@ -63,41 +76,105 @@ const outreachStatusLabels: Record<string, string> = {
   offre: "Offre",
 };
 
-const outreachStatusColors: Record<string, string> = {
-  identified: "bg-gray-100 text-gray-600",
-  contacted: "bg-blue-100 text-blue-700",
-  followup_1: "bg-yellow-100 text-yellow-700",
-  followup_2: "bg-yellow-100 text-yellow-700",
-  followup_3: "bg-orange-100 text-orange-700",
-  followed_up: "bg-yellow-100 text-yellow-700",
-  replied: "bg-green-100 text-green-700",
-  interview: "bg-purple-100 text-purple-700",
-  entretien: "bg-purple-100 text-purple-700",
-  offer: "bg-emerald-100 text-emerald-700",
-  offre: "bg-emerald-100 text-emerald-700",
+const outreachStatusVariants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  identified: "secondary",
+  contacted: "outline",
+  followup_1: "outline",
+  followup_2: "outline",
+  followup_3: "outline",
+  followed_up: "outline",
+  replied: "default",
+  interview: "default",
+  entretien: "default",
+  offer: "default",
+  offre: "default",
 };
 
 const pipelineBarColors: Record<string, string> = {
-  identified: "bg-gray-400",
+  identified: "bg-muted-foreground",
   contacted: "bg-blue-500",
-  followup_1: "bg-yellow-400",
-  followup_2: "bg-yellow-500",
+  followup_1: "bg-amber-400",
+  followup_2: "bg-amber-500",
   followup_3: "bg-orange-500",
-  followed_up: "bg-yellow-500",
-  replied: "bg-green-500",
-  interview: "bg-purple-500",
-  entretien: "bg-purple-500",
-  offer: "bg-emerald-500",
-  offre: "bg-emerald-500",
+  followed_up: "bg-amber-500",
+  replied: "bg-emerald-500",
+  interview: "bg-violet-500",
+  entretien: "bg-violet-500",
+  offer: "bg-emerald-600",
+  offre: "bg-emerald-600",
 };
 
-const priorityColors: Record<number, string> = {
-  1: "bg-red-100 text-red-700",
-  2: "bg-orange-100 text-orange-700",
-  3: "bg-yellow-100 text-yellow-700",
-  4: "bg-blue-100 text-blue-700",
-  5: "bg-gray-100 text-gray-600",
-};
+const outreachColumns: ColumnDef<Outreach, unknown>[] = [
+  {
+    id: "contact",
+    header: "Contact",
+    cell: ({ row }) => (
+      <Link
+        href={`/contacts/${row.original.contact.id}`}
+        className="text-sm font-medium text-primary hover:underline"
+      >
+        {row.original.contact.firstName} {row.original.contact.lastName}
+      </Link>
+    ),
+    enableSorting: true,
+    accessorFn: (row) => `${row.contact.firstName} ${row.contact.lastName}`,
+  },
+  {
+    id: "company",
+    header: "Entreprise",
+    cell: ({ row }) => (
+      <Link
+        href={`/companies/${row.original.contact.company.id}`}
+        className="text-sm text-primary hover:underline"
+      >
+        {row.original.contact.company.name}
+      </Link>
+    ),
+    enableSorting: true,
+    accessorFn: (row) => row.contact.company.name,
+  },
+  {
+    accessorKey: "status",
+    header: "Statut",
+    cell: ({ row }) => (
+      <Badge variant={outreachStatusVariants[row.original.status] ?? "secondary"}>
+        {outreachStatusLabels[row.original.status] || row.original.status}
+      </Badge>
+    ),
+    enableSorting: true,
+  },
+  {
+    id: "priority",
+    header: "Priorite",
+    cell: ({ row }) => (
+      <Badge variant="outline">P{row.original.contact.priority}</Badge>
+    ),
+    enableSorting: true,
+    accessorFn: (row) => row.contact.priority,
+  },
+  {
+    id: "emails",
+    header: "Emails",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">{row.original.emails.length}</span>
+    ),
+    enableSorting: true,
+    accessorFn: (row) => row.emails.length,
+  },
+  {
+    id: "lastContact",
+    header: "Dernier contact",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {row.original.lastContactDate
+          ? new Date(row.original.lastContactDate).toLocaleDateString("fr-FR")
+          : "-"}
+      </span>
+    ),
+    enableSorting: true,
+    accessorFn: (row) => row.lastContactDate ?? "",
+  },
+];
 
 export default function CampaignDetailPage() {
   const params = useParams();
@@ -118,264 +195,181 @@ export default function CampaignDetailPage() {
       .finally(() => setLoading(false));
   }, [params.id]);
 
+  const stats = useMemo(() => {
+    if (!campaign) return null;
+    const totalContacts = campaign.outreaches.length;
+    const allEmails = campaign.outreaches.flatMap((o) => o.emails);
+    const sentEmails = allEmails.filter((e) => e.status === "sent");
+    const emailsSent = sentEmails.length;
+    const openedEmails = sentEmails.filter((e) => e.openedAt);
+    const openRate =
+      emailsSent > 0 ? Math.round((openedEmails.length / emailsSent) * 100) : 0;
+    const repliedEmails = sentEmails.filter((e) => e.repliedAt);
+    const replyRate =
+      emailsSent > 0 ? Math.round((repliedEmails.length / emailsSent) * 100) : 0;
+    return { totalContacts, emailsSent, openRate, replyRate, openedEmails, repliedEmails };
+  }, [campaign]);
+
+  const pipelineData = useMemo(() => {
+    if (!campaign) return [];
+    const pipelineStatuses = [
+      "identified", "contacted", "followup_1", "followup_2",
+      "followup_3", "replied", "interview", "offer",
+    ];
+    return pipelineStatuses.map((s) => ({
+      key: s,
+      label: outreachStatusLabels[s] || s,
+      count: campaign.outreaches.filter((o) => o.status === s).length,
+      color: pipelineBarColors[s] || "bg-muted-foreground",
+    }));
+  }, [campaign]);
+
   if (loading) {
-    return <div className="text-gray-400 text-sm py-12 text-center">Chargement...</div>;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
 
   if (!campaign) {
-    return <div className="text-gray-400 text-sm py-12 text-center">Campagne introuvable</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className="text-sm text-muted-foreground">Campagne introuvable</p>
+        <Link href="/campaigns">
+          <Button variant="outline" className="mt-4">
+            <ArrowLeft className="size-4 mr-1" />
+            Retour aux campagnes
+          </Button>
+        </Link>
+      </div>
+    );
   }
 
   const config = statusConfig[campaign.status] || statusConfig.draft;
-
-  // Compute real stats
-  const totalContacts = campaign.outreaches.length;
-  const allEmails = campaign.outreaches.flatMap((o) => o.emails);
-  const sentEmails = allEmails.filter((e) => e.status === "sent");
-  const emailsSent = sentEmails.length;
-  const openedEmails = sentEmails.filter((e) => e.openedAt);
-  const openRate =
-    emailsSent > 0 ? Math.round((openedEmails.length / emailsSent) * 100) : 0;
-  const repliedEmails = sentEmails.filter((e) => e.repliedAt);
-  const replyRate =
-    emailsSent > 0 ? Math.round((repliedEmails.length / emailsSent) * 100) : 0;
-  const interviews = campaign.outreaches.filter(
-    (o) => o.status === "entretien" || o.status === "interview"
-  ).length;
-
-  // Pipeline counts per status
-  const pipelineStatuses = [
-    "identified",
-    "contacted",
-    "followup_1",
-    "followup_2",
-    "followup_3",
-    "replied",
-    "interview",
-    "offer",
-  ];
-  const pipelineCounts = pipelineStatuses.map((s) => ({
-    key: s,
-    label: outreachStatusLabels[s] || s,
-    count: campaign.outreaches.filter((o) => o.status === s).length,
-    color: pipelineBarColors[s] || "bg-gray-400",
-  }));
-  const totalForBar = pipelineCounts.reduce((acc, p) => acc + p.count, 0);
-
-  const statsCards = [
-    {
-      label: "Contacts",
-      value: totalContacts,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-    },
-    {
-      label: "Emails envoy\u00e9s",
-      value: emailsSent,
-      color: "text-indigo-600",
-      bg: "bg-indigo-50",
-    },
-    {
-      label: "Taux d'ouverture",
-      value: `${openRate}%`,
-      sub: `${openedEmails.length}/${emailsSent}`,
-      color: "text-green-600",
-      bg: "bg-green-50",
-    },
-    {
-      label: "Taux de r\u00e9ponse",
-      value: `${replyRate}%`,
-      sub: `${repliedEmails.length}/${emailsSent}`,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
-    },
-    {
-      label: "Entretiens",
-      value: interviews,
-      color: "text-yellow-600",
-      bg: "bg-yellow-50",
-    },
-  ];
+  const totalForBar = pipelineData.reduce((acc, p) => acc + p.count, 0);
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
       <div>
-        <Link href="/campaigns" className="text-sm text-blue-600 hover:text-blue-700">
-          &larr; Retour aux campagnes
+        <Link href="/campaigns">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="size-3.5 mr-1" />
+            Campagnes
+          </Button>
         </Link>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{campaign.name}</h1>
-            <p className="text-gray-500 mt-1">
-              {campaign.targetRole} &middot; {campaign.targetCity}
-            </p>
-          </div>
-          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${config.classes}`}>
-            {config.label}
-          </span>
-        </div>
+      <PageHeader
+        title={campaign.name}
+        description={`${campaign.targetRole} \u00b7 ${campaign.targetCity}`}
+        actions={<Badge variant={config.variant}>{config.label}</Badge>}
+      />
 
-        {/* Matching criteria banner */}
-        <div className="mt-4 flex flex-wrap items-center gap-3 bg-blue-50 rounded-lg px-4 py-3">
-          <span className="text-xs font-medium text-blue-700 uppercase tracking-wide">
-            Criteres de matching
+      {/* Matching criteria banner */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Criteres
           </span>
-          <span className="text-sm text-blue-900 font-medium">
+          <span className="text-sm font-medium">
             Role : {campaign.targetRole}
           </span>
-          <span className="text-blue-300">|</span>
-          <span className="text-sm text-blue-900 font-medium">
+          <span className="text-muted-foreground">|</span>
+          <span className="text-sm font-medium">
             Ville : {campaign.targetCity}
           </span>
-        </div>
-
-        <div className="text-xs text-gray-400 mt-3">
-          Template : {campaign.template?.name || "-"}
-        </div>
-      </div>
+          {campaign.template && (
+            <>
+              <span className="text-muted-foreground">|</span>
+              <span className="text-sm text-muted-foreground">
+                Template : {campaign.template.name}
+              </span>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {statsCards.map((s) => (
-          <div
-            key={s.label}
-            className="bg-white rounded-xl shadow-sm border border-gray-100 p-4"
-          >
-            <p className="text-xs text-gray-400 uppercase font-medium">{s.label}</p>
-            <p className={`text-xl font-bold mt-1 ${s.color}`}>{s.value}</p>
-            {s.sub && <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>}
-          </div>
-        ))}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <MetricsCard label="Contacts" value={stats?.totalContacts ?? 0} />
+        <MetricsCard label="Emails envoyes" value={stats?.emailsSent ?? 0} />
+        <MetricsCard
+          label="Taux d'ouverture"
+          value={`${stats?.openRate ?? 0}%`}
+        />
+        <MetricsCard
+          label="Taux de reponse"
+          value={`${stats?.replyRate ?? 0}%`}
+        />
       </div>
 
       {/* Pipeline mini-view */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-sm font-semibold text-gray-900 mb-3">Pipeline</h2>
-        {totalForBar > 0 ? (
-          <>
-            <div className="flex rounded-lg overflow-hidden h-6">
-              {pipelineCounts
-                .filter((p) => p.count > 0)
-                .map((p) => (
+      <Card>
+        <CardContent>
+          <h2 className="text-sm font-semibold mb-3">Pipeline</h2>
+          {totalForBar > 0 ? (
+            <>
+              <div className="flex rounded-lg overflow-hidden h-6">
+                {pipelineData
+                  .filter((p) => p.count > 0)
+                  .map((p) => (
+                    <div
+                      key={p.key}
+                      className={cn(
+                        p.color,
+                        "flex items-center justify-center text-xs font-medium text-white"
+                      )}
+                      style={{
+                        width: `${(p.count / totalForBar) * 100}%`,
+                        minWidth: "2rem",
+                      }}
+                    >
+                      {p.count}
+                    </div>
+                  ))}
+              </div>
+              <div className="flex flex-wrap gap-3 mt-3">
+                {pipelineData.map((p) => (
                   <div
                     key={p.key}
-                    className={`${p.color} flex items-center justify-center text-xs font-medium text-white`}
-                    style={{
-                      width: `${(p.count / totalForBar) * 100}%`,
-                      minWidth: "2rem",
-                    }}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground"
                   >
-                    {p.count}
+                    <div className={cn("w-2.5 h-2.5 rounded-full", p.color)} />
+                    <span>
+                      {p.label} ({p.count})
+                    </span>
                   </div>
                 ))}
-            </div>
-            <div className="flex flex-wrap gap-3 mt-3">
-              {pipelineCounts.map((p) => (
-                <div key={p.key} className="flex items-center gap-1.5 text-xs text-gray-500">
-                  <div className={`w-2.5 h-2.5 rounded-full ${p.color}`} />
-                  <span>
-                    {p.label} ({p.count})
-                  </span>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-gray-400">Aucun outreach</p>
-        )}
-      </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Aucun outreach</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Outreaches table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+      <div>
+        <h2 className="text-base font-semibold mb-3">
           Outreaches ({campaign.outreaches.length})
         </h2>
-        {campaign.outreaches.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">
-            Aucun outreach dans cette campagne
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                    Contact
-                  </th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                    Entreprise
-                  </th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                    Statut
-                  </th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                    Priorit&eacute;
-                  </th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                    Emails
-                  </th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                    Dernier contact
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {campaign.outreaches.map((o) => (
-                  <tr
-                    key={o.id}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/contacts/${o.contact.id}`}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                      >
-                        {o.contact.firstName} {o.contact.lastName}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/companies/${o.contact.company.id}`}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        {o.contact.company.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          outreachStatusColors[o.status] || "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {outreachStatusLabels[o.status] || o.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          priorityColors[o.contact.priority] || priorityColors[3]
-                        }`}
-                      >
-                        P{o.contact.priority}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {o.emails.length}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">
-                      {o.lastContactDate
-                        ? new Date(o.lastContactDate).toLocaleDateString("fr-FR")
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable
+          columns={outreachColumns}
+          data={campaign.outreaches}
+          emptyState={{
+            icon: Users,
+            title: "Aucun outreach",
+            description: "Aucun outreach dans cette campagne.",
+          }}
+        />
       </div>
     </div>
   );

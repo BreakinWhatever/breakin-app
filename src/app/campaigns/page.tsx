@@ -2,6 +2,13 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { type ColumnDef } from "@tanstack/react-table";
+import { Plus, Megaphone } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { DataTable } from "@/components/shared/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import CampaignForm from "@/components/campaigns/campaign-form";
 
 interface Email {
@@ -34,11 +41,147 @@ interface Campaign {
   };
 }
 
-const statusConfig: Record<string, { label: string; classes: string }> = {
-  draft: { label: "Brouillon", classes: "bg-gray-100 text-gray-600" },
-  active: { label: "Active", classes: "bg-green-100 text-green-700" },
-  paused: { label: "En pause", classes: "bg-yellow-100 text-yellow-700" },
+interface CampaignRow extends Campaign {
+  stats: {
+    contacts: number;
+    sent: number;
+    opened: number;
+    replied: number;
+    interviews: number;
+    openRate: number;
+    replyRate: number;
+  };
+}
+
+const statusConfig: Record<
+  string,
+  { label: string; variant: "default" | "secondary" | "outline" }
+> = {
+  draft: { label: "Brouillon", variant: "secondary" },
+  active: { label: "Active", variant: "default" },
+  paused: { label: "En pause", variant: "outline" },
 };
+
+const columns: ColumnDef<CampaignRow, unknown>[] = [
+  {
+    accessorKey: "name",
+    header: "Campagne",
+    cell: ({ row }) => (
+      <div>
+        <Link
+          href={`/campaigns/${row.original.id}`}
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          {row.original.name}
+        </Link>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {row.original.targetRole} &middot; {row.original.targetCity}
+        </p>
+      </div>
+    ),
+    enableSorting: true,
+  },
+  {
+    accessorKey: "status",
+    header: "Statut",
+    cell: ({ row }) => {
+      const config = statusConfig[row.original.status] || statusConfig.draft;
+      return <Badge variant={config.variant}>{config.label}</Badge>;
+    },
+    enableSorting: false,
+  },
+  {
+    id: "template",
+    header: "Template",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {row.original.template?.name ?? "-"}
+      </span>
+    ),
+    enableSorting: false,
+  },
+  {
+    id: "contacts",
+    header: "Contacts",
+    cell: ({ row }) => (
+      <span className="text-sm">{row.original.stats.contacts}</span>
+    ),
+    enableSorting: true,
+    accessorFn: (row) => row.stats.contacts,
+  },
+  {
+    id: "sent",
+    header: "Envoyes",
+    cell: ({ row }) => (
+      <span className="text-sm">{row.original.stats.sent}</span>
+    ),
+    enableSorting: true,
+    accessorFn: (row) => row.stats.sent,
+  },
+  {
+    id: "openRate",
+    header: "Taux ouverture",
+    cell: ({ row }) => {
+      const rate = row.original.stats.openRate;
+      return (
+        <span
+          className={cn(
+            "text-sm font-medium",
+            rate > 0
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-muted-foreground"
+          )}
+        >
+          {rate}%
+        </span>
+      );
+    },
+    enableSorting: true,
+    accessorFn: (row) => row.stats.openRate,
+  },
+  {
+    id: "replyRate",
+    header: "Taux reponse",
+    cell: ({ row }) => {
+      const rate = row.original.stats.replyRate;
+      return (
+        <span
+          className={cn(
+            "text-sm font-medium",
+            rate > 0
+              ? "text-violet-600 dark:text-violet-400"
+              : "text-muted-foreground"
+          )}
+        >
+          {rate}%
+        </span>
+      );
+    },
+    enableSorting: true,
+    accessorFn: (row) => row.stats.replyRate,
+  },
+  {
+    id: "interviews",
+    header: "Entretiens",
+    cell: ({ row }) => {
+      const count = row.original.stats.interviews;
+      return (
+        <span
+          className={cn(
+            "text-sm font-medium",
+            count > 0
+              ? "text-amber-600 dark:text-amber-400"
+              : "text-muted-foreground"
+          )}
+        >
+          {count}
+        </span>
+      );
+    },
+    enableSorting: true,
+    accessorFn: (row) => row.stats.interviews,
+  },
+];
 
 export default function CampaignsPage() {
   const [showForm, setShowForm] = useState(false);
@@ -64,9 +207,8 @@ export default function CampaignsPage() {
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
-  // Compute stats per campaign
-  const campaignStats = useMemo(() => {
-    const stats: Record<
+  const campaignRows: CampaignRow[] = useMemo(() => {
+    const statsMap: Record<
       string,
       {
         contacts: number;
@@ -78,7 +220,7 @@ export default function CampaignsPage() {
     > = {};
 
     for (const c of campaigns) {
-      stats[c.id] = {
+      statsMap[c.id] = {
         contacts: c._count.outreaches,
         sent: 0,
         opened: 0,
@@ -88,7 +230,7 @@ export default function CampaignsPage() {
     }
 
     for (const o of outreaches) {
-      const s = stats[o.campaignId];
+      const s = statsMap[o.campaignId];
       if (!s) continue;
 
       if (o.status === "interview" || o.status === "entretien") {
@@ -106,164 +248,50 @@ export default function CampaignsPage() {
       }
     }
 
-    return stats;
+    return campaigns.map((c) => {
+      const s = statsMap[c.id] || {
+        contacts: 0,
+        sent: 0,
+        opened: 0,
+        replied: 0,
+        interviews: 0,
+      };
+      return {
+        ...c,
+        stats: {
+          ...s,
+          openRate: s.sent > 0 ? Math.round((s.opened / s.sent) * 100) : 0,
+          replyRate: s.sent > 0 ? Math.round((s.replied / s.sent) * 100) : 0,
+        },
+      };
+    });
   }, [campaigns, outreaches]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Campagnes</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Gerez vos campagnes de prospection
-          </p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg transition-colors"
-        >
-          Nouvelle campagne
-        </button>
-      </div>
+      <PageHeader
+        title="Campagnes"
+        description="Gerez vos campagnes de prospection"
+        actions={
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="size-4 mr-1" />
+            Nouvelle campagne
+          </Button>
+        }
+      />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                  Campagne
-                </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                  Statut
-                </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                  Template
-                </th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                  Contacts
-                </th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                  Envoyes
-                </th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                  Taux d&apos;ouverture
-                </th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                  Taux de reponse
-                </th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                  Entretiens
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="text-center py-8 text-gray-400 text-sm"
-                  >
-                    Chargement...
-                  </td>
-                </tr>
-              ) : campaigns.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="text-center py-8 text-gray-400 text-sm"
-                  >
-                    Aucune campagne. Creez-en une pour commencer.
-                  </td>
-                </tr>
-              ) : (
-                campaigns.map((c) => {
-                  const config = statusConfig[c.status] || statusConfig.draft;
-                  const s = campaignStats[c.id] || {
-                    contacts: 0,
-                    sent: 0,
-                    opened: 0,
-                    replied: 0,
-                    interviews: 0,
-                  };
-                  const openRate =
-                    s.sent > 0 ? Math.round((s.opened / s.sent) * 100) : 0;
-                  const replyRate =
-                    s.sent > 0 ? Math.round((s.replied / s.sent) * 100) : 0;
-
-                  return (
-                    <tr
-                      key={c.id}
-                      className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/campaigns/${c.id}`}
-                          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                        >
-                          {c.name}
-                        </Link>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {c.targetRole} &middot; {c.targetCity}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`text-xs px-2.5 py-1 rounded-full font-medium ${config.classes}`}
-                        >
-                          {config.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {c.template?.name ?? "-"}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 text-center">
-                        {s.contacts}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 text-center">
-                        {s.sent}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-center">
-                        <span
-                          className={
-                            openRate > 0
-                              ? "text-green-600 font-medium"
-                              : "text-gray-400"
-                          }
-                        >
-                          {openRate}%
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-center">
-                        <span
-                          className={
-                            replyRate > 0
-                              ? "text-purple-600 font-medium"
-                              : "text-gray-400"
-                          }
-                        >
-                          {replyRate}%
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-center">
-                        <span
-                          className={
-                            s.interviews > 0
-                              ? "text-yellow-600 font-medium"
-                              : "text-gray-400"
-                          }
-                        >
-                          {s.interviews}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={campaignRows}
+        loading={loading}
+        emptyState={{
+          icon: Megaphone,
+          title: "Aucune campagne",
+          description: "Creez votre premiere campagne pour commencer la prospection.",
+          actionLabel: "Nouvelle campagne",
+          onAction: () => setShowForm(true),
+        }}
+      />
 
       <CampaignForm
         open={showForm}

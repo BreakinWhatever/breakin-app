@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, Globe, Building2, MapPin, Users as UsersIcon } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Contact {
   id: string;
@@ -25,14 +31,6 @@ interface CompanyDetail {
   contacts: Contact[];
 }
 
-const priorityColors: Record<number, string> = {
-  1: "bg-red-100 text-red-700",
-  2: "bg-orange-100 text-orange-700",
-  3: "bg-yellow-100 text-yellow-700",
-  4: "bg-blue-100 text-blue-700",
-  5: "bg-gray-100 text-gray-600",
-};
-
 export default function CompanyDetailPage() {
   const params = useParams();
   const [company, setCompany] = useState<CompanyDetail | null>(null);
@@ -53,100 +51,140 @@ export default function CompanyDetailPage() {
   }, [params.id]);
 
   if (loading) {
-    return <div className="text-gray-400 text-sm py-12 text-center">Chargement...</div>;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
 
   if (!company) {
-    return <div className="text-gray-400 text-sm py-12 text-center">Entreprise introuvable</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className="text-sm text-muted-foreground">Entreprise introuvable</p>
+        <Link href="/companies">
+          <Button variant="outline" className="mt-4">
+            <ArrowLeft className="size-4 mr-1" />
+            Retour aux entreprises
+          </Button>
+        </Link>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/companies" className="text-sm text-blue-600 hover:text-blue-700">
-          &larr; Retour aux entreprises
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+        <Link href="/companies">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="size-3.5 mr-1" />
+            Entreprises
+          </Button>
         </Link>
+        <span>/</span>
+        <span className="font-medium text-foreground">{company.name}</span>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h1 className="text-2xl font-bold text-gray-900">{company.name}</h1>
-        <p className="text-gray-500 mt-1">{company.sector}</p>
+      <PageHeader title={company.name} description={company.sector} />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Ville</p>
-            <p className="text-sm text-gray-900 mt-1">{company.city}</p>
+      {/* Info card */}
+      <Card>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="size-3" />
+                Ville
+              </div>
+              <p className="text-sm font-medium">{company.city}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="size-3" />
+                Pays
+              </div>
+              <p className="text-sm font-medium">{company.country}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Building2 className="size-3" />
+                Taille
+              </div>
+              <p className="text-sm font-medium">{company.size || "-"}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Globe className="size-3" />
+                Site web
+              </div>
+              {company.website ? (
+                <a
+                  href={company.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-primary hover:underline block truncate"
+                >
+                  {company.website}
+                </a>
+              ) : (
+                <p className="text-sm text-muted-foreground">-</p>
+              )}
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Pays</p>
-            <p className="text-sm text-gray-900 mt-1">{company.country}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Taille</p>
-            <p className="text-sm text-gray-900 mt-1">{company.size || "-"}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Site web</p>
-            {company.website ? (
-              <a
-                href={company.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:text-blue-700 mt-1 block truncate"
-              >
-                {company.website}
-              </a>
-            ) : (
-              <p className="text-sm text-gray-400 mt-1">-</p>
-            )}
-          </div>
-        </div>
 
-        {company.notes && (
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-400 uppercase font-medium mb-1">Notes</p>
-            <p className="text-sm text-gray-700">{company.notes}</p>
-          </div>
-        )}
-      </div>
+          {company.notes && (
+            <div className="mt-4 p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground uppercase font-medium mb-1">
+                Notes
+              </p>
+              <p className="text-sm">{company.notes}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Contacts ({company.contacts.length})
-        </h2>
-        {company.contacts.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">
-            Aucun contact dans cette entreprise
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {company.contacts.map((c) => (
-              <Link
-                key={c.id}
-                href={`/contacts/${c.id}`}
-                className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors block"
-              >
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {c.firstName} {c.lastName}
-                  </p>
-                  <p className="text-xs text-gray-500">{c.title}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400">{c.email}</span>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      priorityColors[c.priority] || priorityColors[3]
-                    }`}
-                  >
-                    P{c.priority}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Contacts */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UsersIcon className="size-4" />
+            Contacts ({company.contacts.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {company.contacts.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Aucun contact dans cette entreprise
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {company.contacts.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/contacts/${c.id}`}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors block"
+                >
+                  <div>
+                    <p className="text-sm font-medium">
+                      {c.firstName} {c.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{c.title}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">
+                      {c.email}
+                    </span>
+                    <Badge variant="outline">P{c.priority}</Badge>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

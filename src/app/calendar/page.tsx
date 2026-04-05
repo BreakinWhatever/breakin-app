@@ -1,12 +1,31 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { Plus, RefreshCw, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
-import type { EventClickArg, DateSelectArg, EventDropArg, DatesSetArg } from "@fullcalendar/core";
+import type {
+  EventClickArg,
+  DateSelectArg,
+  EventDropArg,
+  DatesSetArg,
+} from "@fullcalendar/core";
+import { PageHeader } from "@/components/shared/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import EventModal from "@/components/calendar/event-modal";
 import CreateEventModal from "@/components/calendar/create-event-modal";
 
@@ -23,8 +42,19 @@ interface ApiEvent {
   location?: string | null;
   notes?: string | null;
   color?: string | null;
-  contact?: { id: string; firstName: string; lastName: string; email: string; title: string } | null;
-  company?: { id: string; name: string; sector: string; city: string } | null;
+  contact?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    title: string;
+  } | null;
+  company?: {
+    id: string;
+    name: string;
+    sector: string;
+    city: string;
+  } | null;
 }
 
 interface EventFormData {
@@ -56,7 +86,9 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<ApiEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<ApiEvent | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createInitialDate, setCreateInitialDate] = useState<string | null>(null);
+  const [createInitialDate, setCreateInitialDate] = useState<string | null>(
+    null
+  );
   const [editingEvent, setEditingEvent] = useState<EventFormData | null>(null);
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -88,10 +120,13 @@ export default function CalendarPage() {
     [fetchEvents]
   );
 
-  const handleEventClick = useCallback((info: EventClickArg) => {
-    const apiEvent = events.find((e) => e.id === info.event.id);
-    if (apiEvent) setSelectedEvent(apiEvent);
-  }, [events]);
+  const handleEventClick = useCallback(
+    (info: EventClickArg) => {
+      const apiEvent = events.find((e) => e.id === info.event.id);
+      if (apiEvent) setSelectedEvent(apiEvent);
+    },
+    [events]
+  );
 
   const handleDateSelect = useCallback((info: DateSelectArg) => {
     setCreateInitialDate(info.startStr);
@@ -141,12 +176,14 @@ export default function CalendarPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
+          toast.success("Evenement modifie");
         } else {
           await fetch("/api/events", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
+          toast.success("Evenement cree");
         }
 
         setShowCreateModal(false);
@@ -154,6 +191,7 @@ export default function CalendarPage() {
         refetchCurrent();
       } catch (err) {
         console.error("Failed to save event:", err);
+        toast.error("Erreur lors de la sauvegarde");
       }
     },
     [refetchCurrent]
@@ -167,6 +205,7 @@ export default function CalendarPage() {
         refetchCurrent();
       } catch (err) {
         console.error("Failed to delete event:", err);
+        toast.error("Erreur lors de la suppression");
       }
     },
     [refetchCurrent]
@@ -199,89 +238,91 @@ export default function CalendarPage() {
     textColor: e.type === "reminder" ? "#1f2937" : "#ffffff",
   }));
 
-  const feedUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/api/calendar/feed`
-    : "";
+  const feedUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/calendar/feed`
+      : "";
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(feedUrl).then(() => {
       setCopied(true);
+      toast.success("Lien copie !");
       setTimeout(() => setCopied(false), 2000);
     });
   }, [feedUrl]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Calendrier</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Entretiens, relances et rappels
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowSyncDialog(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Sync
-          </button>
-          <button
-            onClick={() => {
-              setEditingEvent(null);
-              setCreateInitialDate(null);
-              setShowCreateModal(true);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Nouvel evenement
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Calendrier"
+        description="Entretiens, relances et rappels"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowSyncDialog(true)}
+            >
+              <RefreshCw className="size-4 mr-1" />
+              Sync
+            </Button>
+            <Button
+              onClick={() => {
+                setEditingEvent(null);
+                setCreateInitialDate(null);
+                setShowCreateModal(true);
+              }}
+            >
+              <Plus className="size-4 mr-1" />
+              Nouvel evenement
+            </Button>
+          </div>
+        }
+      />
 
       {/* Calendar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-        <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-          initialView="dayGridMonth"
-          headerToolbar={{
-            left: "prev,next today",
-            center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-          }}
-          locale="fr"
-          firstDay={1}
-          selectable
-          editable
-          events={calendarEvents}
-          datesSet={handleDatesSet}
-          eventClick={handleEventClick}
-          select={handleDateSelect}
-          eventDrop={handleEventDrop}
-          height="auto"
-          buttonText={{
-            today: "Aujourd'hui",
-            month: "Mois",
-            week: "Semaine",
-            day: "Jour",
-            list: "Liste",
-          }}
-          eventDisplay="block"
-          dayMaxEvents={3}
-          nowIndicator
-        />
-      </div>
+      <Card>
+        <CardContent>
+          <FullCalendar
+            plugins={[
+              dayGridPlugin,
+              timeGridPlugin,
+              interactionPlugin,
+              listPlugin,
+            ]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+            }}
+            locale="fr"
+            firstDay={1}
+            selectable
+            editable
+            events={calendarEvents}
+            datesSet={handleDatesSet}
+            eventClick={handleEventClick}
+            select={handleDateSelect}
+            eventDrop={handleEventDrop}
+            height="auto"
+            buttonText={{
+              today: "Aujourd'hui",
+              month: "Mois",
+              week: "Semaine",
+              day: "Jour",
+              list: "Liste",
+            }}
+            eventDisplay="block"
+            dayMaxEvents={3}
+            nowIndicator
+          />
+        </CardContent>
+      </Card>
 
       {/* Legend */}
-      <div className="flex items-center gap-6 text-sm text-gray-600">
+      <div className="flex items-center gap-6 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-purple-600" />
+          <span className="w-3 h-3 rounded-full bg-violet-600" />
           Entretien
         </div>
         <div className="flex items-center gap-2">
@@ -289,11 +330,11 @@ export default function CalendarPage() {
           Relance
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-yellow-500" />
+          <span className="w-3 h-3 rounded-full bg-amber-500" />
           Rappel
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-gray-500" />
+          <span className="w-3 h-3 rounded-full bg-muted-foreground" />
           Autre
         </div>
       </div>
@@ -322,56 +363,49 @@ export default function CalendarPage() {
       )}
 
       {/* Sync Dialog */}
-      {showSyncDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Synchroniser avec Apple Calendar
-              </h2>
-              <button
-                onClick={() => setShowSyncDialog(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-gray-600">
-                Copiez ce lien et ajoutez-le dans Apple Calendar
-                (Fichier &gt; Nouvel abonnement a un calendrier)
-              </p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={feedUrl}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-700 select-all outline-none"
-                />
-                <button
-                  onClick={handleCopy}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
-                >
-                  {copied ? "Copie !" : "Copier"}
-                </button>
-              </div>
-              <p className="text-xs text-gray-400">
-                Le calendrier se mettra a jour automatiquement dans Apple Calendar.
-              </p>
-            </div>
-            <div className="flex justify-end p-6 border-t border-gray-100">
-              <button
-                onClick={() => setShowSyncDialog(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Fermer
-              </button>
-            </div>
+      <Dialog
+        open={showSyncDialog}
+        onOpenChange={(isOpen) => !isOpen && setShowSyncDialog(false)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Synchroniser avec Apple Calendar</DialogTitle>
+            <DialogDescription>
+              Copiez ce lien et ajoutez-le dans Apple Calendar (Fichier &gt;
+              Nouvel abonnement a un calendrier)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center gap-2">
+            <Input
+              readOnly
+              value={feedUrl}
+              className="flex-1"
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+            />
+            <Button onClick={handleCopy} variant="outline">
+              {copied ? (
+                <Check className="size-4" />
+              ) : (
+                <Copy className="size-4" />
+              )}
+            </Button>
           </div>
-        </div>
-      )}
+
+          <p className="text-xs text-muted-foreground">
+            Le calendrier se mettra a jour automatiquement dans Apple Calendar.
+          </p>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSyncDialog(false)}
+            >
+              Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

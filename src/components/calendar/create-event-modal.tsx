@@ -1,6 +1,24 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ContactOption {
   id: string;
@@ -120,167 +138,158 @@ export default function CreateEventModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">
+    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
             {isEditing ? "Modifier l'evenement" : "Nouvel evenement"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="evt-title">Titre *</Label>
+            <Input
+              id="evt-title"
               required
               value={form.title}
               onChange={(e) => updateField("title", e.target.value)}
               placeholder="Entretien chez Goldman Sachs"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </div>
 
           {/* Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-            <select
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <Select
               value={form.type}
-              onChange={(e) => updateField("type", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+              onValueChange={(v) => updateField("type", v as string)}
             >
-              <option value="interview">Entretien</option>
-              <option value="followup">Relance</option>
-              <option value="reminder">Rappel</option>
-              <option value="other">Autre</option>
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="interview">Entretien</SelectItem>
+                <SelectItem value="followup">Relance</SelectItem>
+                <SelectItem value="reminder">Rappel</SelectItem>
+                <SelectItem value="other">Autre</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Start / End */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Debut *</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="evt-start">Debut *</Label>
+              <Input
+                id="evt-start"
                 type="datetime-local"
                 required
                 value={form.startDate}
                 onChange={(e) => updateField("startDate", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fin *</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="evt-end">Fin *</Label>
+              <Input
+                id="evt-end"
                 type="datetime-local"
                 required
                 value={form.endDate}
                 onChange={(e) => updateField("endDate", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               />
             </div>
           </div>
 
           {/* Contact */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contact</label>
-            <select
-              value={form.contactId}
-              onChange={(e) => updateField("contactId", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+          <div className="space-y-2">
+            <Label>Contact</Label>
+            <Select
+              value={form.contactId || "none"}
+              onValueChange={(v) => updateField("contactId", v === "none" ? "" : v as string)}
             >
-              <option value="">— Aucun —</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.firstName} {c.lastName}
-                  {c.company ? ` (${c.company.name})` : ""}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Aucun" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Aucun</SelectItem>
+                {contacts.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.firstName} {c.lastName}
+                    {c.company ? ` (${c.company.name})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Company */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Entreprise</label>
-            <select
-              value={form.companyId}
-              onChange={(e) => updateField("companyId", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+          <div className="space-y-2">
+            <Label>Entreprise</Label>
+            <Select
+              value={form.companyId || "none"}
+              onValueChange={(v) => updateField("companyId", v === "none" ? "" : v as string)}
             >
-              <option value="">— Aucune —</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Aucune" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Aucune</SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Location */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="evt-location">Lieu</Label>
+            <Input
+              id="evt-location"
               value={form.location}
               onChange={(e) => updateField("location", e.target.value)}
               placeholder="85 Avenue Foch, Paris / Zoom / Teams"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </div>
 
           {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea
+          <div className="space-y-2">
+            <Label htmlFor="evt-desc">Description</Label>
+            <Textarea
+              id="evt-desc"
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}
               rows={2}
               placeholder="Details de l'evenement..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
             />
           </div>
 
           {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-            <textarea
+          <div className="space-y-2">
+            <Label htmlFor="evt-notes">Notes</Label>
+            <Textarea
+              id="evt-notes"
               value={form.notes}
               onChange={(e) => updateField("notes", e.target.value)}
               rows={2}
               placeholder="Notes personnelles..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
             />
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" disabled={loading}>
               {loading ? "..." : isEditing ? "Enregistrer" : "Creer"}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
