@@ -17,6 +17,7 @@ import {
   Send,
   MailOpen,
   ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 import { type ContactRow } from "./contacts-table";
 
@@ -144,9 +145,21 @@ function EmailCard({ email }: { email: EmailItem }) {
   );
 }
 
-// --- Build timeline events from outreaches ---
+// --- Inbound email type ---
 
-function buildTimelineEvents(contact: ContactRow): TimelineEvent[] {
+interface InboundEmailItem {
+  id: string;
+  fromEmail: string;
+  fromName: string;
+  subject: string;
+  bodyText: string | null;
+  bodyHtml: string | null;
+  receivedAt: string;
+}
+
+// --- Build timeline events from outreaches + inbound emails ---
+
+function buildTimelineEvents(contact: ContactRow & { inboundEmails?: InboundEmailItem[] }): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
   if (contact.outreaches) {
@@ -177,9 +190,57 @@ function buildTimelineEvents(contact: ContactRow): TimelineEvent[] {
     }
   }
 
+  // Add inbound emails to timeline
+  if (contact.inboundEmails) {
+    for (const inbound of contact.inboundEmails) {
+      events.push({
+        id: `inbound-${inbound.id}`,
+        type: "reply_content",
+        title: `Reponse: ${inbound.subject}`,
+        description: inbound.bodyText
+          ? inbound.bodyText.substring(0, 150) + (inbound.bodyText.length > 150 ? "..." : "")
+          : undefined,
+        date: new Date(inbound.receivedAt),
+      });
+    }
+  }
+
   // Sort by date descending (most recent first)
   events.sort((a, b) => b.date.getTime() - a.date.getTime());
   return events;
+}
+
+// --- Inbound email card ---
+
+function InboundEmailCard({ email }: { email: InboundEmailItem }) {
+  return (
+    <div className="rounded-lg border p-3 space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <MessageSquare className="size-3.5 text-green-500 shrink-0" />
+          <span className="text-sm font-medium truncate">{email.subject}</span>
+        </div>
+        <Badge variant="outline" className="text-xs shrink-0">
+          Recu
+        </Badge>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        De: {email.fromName || email.fromEmail}
+      </p>
+      <p className="text-xs text-muted-foreground line-clamp-2">
+        {email.bodyText || "(contenu HTML uniquement)"}
+      </p>
+      <div className="flex items-center justify-end">
+        <time className="text-xs text-muted-foreground">
+          {new Date(email.receivedAt).toLocaleDateString("fr-FR", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </time>
+      </div>
+    </div>
+  );
 }
 
 // --- Collect all emails from outreaches ---
@@ -205,7 +266,7 @@ function collectEmails(contact: ContactRow): EmailItem[] {
 // --- Main component ---
 
 interface ContactSidePanelProps {
-  contact: ContactRow | null;
+  contact: (ContactRow & { inboundEmails?: InboundEmailItem[] }) | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPrev?: () => void;
@@ -224,6 +285,7 @@ export function ContactSidePanel({
   const pConfig = priorityConfig[contact.priority] || priorityConfig[4];
   const timelineEvents = buildTimelineEvents(contact);
   const allEmails = collectEmails(contact);
+  const inboundEmails: InboundEmailItem[] = contact.inboundEmails || [];
 
   return (
     <SidePanel
@@ -331,17 +393,45 @@ export function ContactSidePanel({
 
         {/* --- Emails tab --- */}
         <TabsContent value="emails">
-          {allEmails.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              Aucun email
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {allEmails.map((email) => (
-                <EmailCard key={email.id} email={email} />
-              ))}
+          <div className="space-y-4">
+            {/* Emails recus */}
+            {inboundEmails.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Emails recus
+                </h4>
+                <div className="space-y-3">
+                  {inboundEmails.map((email) => (
+                    <InboundEmailCard key={email.id} email={email} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Emails envoyes */}
+            <div>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Emails envoyes
+              </h4>
+              {allEmails.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  Aucun email envoye
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {allEmails.map((email) => (
+                    <EmailCard key={email.id} email={email} />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+
+            {allEmails.length === 0 && inboundEmails.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Aucun email
+              </p>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </SidePanel>

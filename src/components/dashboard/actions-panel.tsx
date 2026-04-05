@@ -34,6 +34,22 @@ interface Suggestion {
   };
 }
 
+interface InboundReply {
+  id: string;
+  fromEmail: string;
+  fromName: string;
+  subject: string;
+  bodyText: string | null;
+  receivedAt: string;
+  contact: {
+    firstName: string;
+    lastName: string;
+    company: {
+      name: string;
+    };
+  } | null;
+}
+
 interface ActionsPanelProps {
   campaignId?: string;
 }
@@ -127,19 +143,76 @@ function SuggestionCard({
   );
 }
 
+/* --- Reply card --- */
+
+function ReplyCard({ reply }: { reply: InboundReply }) {
+  const contactName = reply.contact
+    ? `${reply.contact.firstName} ${reply.contact.lastName}`
+    : reply.fromName || reply.fromEmail;
+  const companyName = reply.contact?.company?.name || "";
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm">
+            {contactName}
+            {companyName && (
+              <span className="ml-2 text-muted-foreground font-normal">
+                — {companyName}
+              </span>
+            )}
+          </CardTitle>
+          <Badge
+            variant="default"
+            className="bg-green-500/10 text-green-600 border-transparent dark:text-green-400"
+          >
+            Reponse
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm font-medium">{reply.subject}</p>
+        {reply.bodyText && (
+          <Card className="bg-muted/50">
+            <CardContent className="py-3">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
+                {reply.bodyText}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        <time className="block text-xs text-muted-foreground">
+          {new Date(reply.receivedAt).toLocaleDateString("fr-FR", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </time>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* --- Main component --- */
 
 export default function ActionsPanel({ campaignId }: ActionsPanelProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [inboundReplies, setInboundReplies] = useState<InboundReply[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
 
   const fetchSuggestions = useCallback(() => {
     setLoading(true);
-    fetch("/api/agent/suggestions")
-      .then((r) => r.json())
-      .then((data) => {
-        setSuggestions(Array.isArray(data) ? data : []);
+    Promise.all([
+      fetch("/api/agent/suggestions").then((r) => r.json()),
+      fetch("/api/inbound-emails?limit=20").then((r) => r.json()),
+    ])
+      .then(([suggestionsData, repliesData]) => {
+        setSuggestions(Array.isArray(suggestionsData) ? suggestionsData : []);
+        setInboundReplies(Array.isArray(repliesData) ? repliesData : []);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -278,7 +351,7 @@ export default function ActionsPanel({ campaignId }: ActionsPanelProps) {
             </TabsTrigger>
             <TabsTrigger value="reponses">
               Reponses
-              <Badge variant="secondary" className="ml-1.5">{reponses.length}</Badge>
+              <Badge variant="secondary" className="ml-1.5">{reponses.length + inboundReplies.length}</Badge>
             </TabsTrigger>
           </TabsList>
 
@@ -289,7 +362,28 @@ export default function ActionsPanel({ campaignId }: ActionsPanelProps) {
             {renderSuggestions(relances)}
           </TabsContent>
           <TabsContent value="reponses" className="pt-4">
-            {renderSuggestions(reponses)}
+            {reponses.length === 0 && inboundReplies.length === 0 ? (
+              <EmptyState
+                icon={Inbox}
+                title="Aucune reponse"
+                description="Les reponses a vos emails apparaitront ici."
+              />
+            ) : (
+              <div className="space-y-4">
+                {inboundReplies.map((reply) => (
+                  <ReplyCard key={reply.id} reply={reply} />
+                ))}
+                {reponses.map((s) => (
+                  <SuggestionCard
+                    key={s.id}
+                    suggestion={s}
+                    onApprove={handleApproveAndSend}
+                    onIgnore={handleIgnore}
+                    processing={processing === s.id}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>

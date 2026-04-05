@@ -49,8 +49,8 @@ const mainNavItems: NavItem[] = [
   { label: "Entreprises", href: "/companies", icon: Building2 },
   { label: "Campagnes", href: "/campaigns", icon: Megaphone },
   { label: "Templates", href: "/templates", icon: FileText },
-  { label: "Offres", href: "/offres", icon: Briefcase, disabled: true, comingSoon: true },
-  { label: "Candidatures", href: "/candidatures", icon: ClipboardList, disabled: true, comingSoon: true },
+  { label: "Offres", href: "/offres", icon: Briefcase },
+  { label: "Candidatures", href: "/candidatures", icon: ClipboardList },
 ];
 
 const bottomNavItems: NavItem[] = [

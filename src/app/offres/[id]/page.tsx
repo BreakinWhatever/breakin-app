@@ -1,0 +1,298 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  ExternalLink,
+  MapPin,
+  Building2,
+  Briefcase,
+  Globe,
+  DollarSign,
+  Calendar,
+  Star,
+  XCircle,
+  Send,
+} from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+
+interface OfferDetail {
+  id: string;
+  title: string;
+  company: string;
+  companyId: string | null;
+  city: string;
+  country: string;
+  contractType: string;
+  description: string;
+  url: string;
+  source: string;
+  salary: string | null;
+  matchScore: number | null;
+  matchAnalysis: string | null;
+  status: string;
+  postedAt: string | null;
+  createdAt: string;
+}
+
+function ScoreDisplay({ score }: { score: number | null }) {
+  if (score === null || score === undefined) {
+    return <span className="text-5xl font-bold text-muted-foreground">--</span>;
+  }
+
+  let colorClass = "text-gray-500";
+  if (score >= 80) colorClass = "text-emerald-500";
+  else if (score >= 60) colorClass = "text-yellow-500";
+
+  return <span className={`text-5xl font-bold ${colorClass}`}>{score}</span>;
+}
+
+const statusLabels: Record<string, string> = {
+  new: "Nouveau",
+  shortlisted: "Shortlist",
+  applied: "Postule",
+  ignored: "Ignore",
+};
+
+export default function OfferDetailPage() {
+  const params = useParams();
+  const [offer, setOffer] = useState<OfferDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!params.id) return;
+    fetch(`/api/offers/${params.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) {
+          setOffer(null);
+        } else {
+          setOffer(data);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [params.id]);
+
+  const handleStatusUpdate = async (newStatus: string) => {
+    if (!offer) return;
+    const res = await fetch(`/api/offers/${offer.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setOffer(updated);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (!offer) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className="text-sm text-muted-foreground">Offre introuvable</p>
+        <Link href="/offres">
+          <Button variant="outline" className="mt-4">
+            <ArrowLeft className="size-4 mr-1" />
+            Retour aux offres
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+        <Link href="/offres">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="size-3.5 mr-1" />
+            Offres
+          </Button>
+        </Link>
+        <span>/</span>
+        <span className="font-medium text-foreground truncate max-w-[300px]">
+          {offer.title}
+        </span>
+      </div>
+
+      <PageHeader
+        title={offer.title}
+        description={`${offer.company} - ${offer.city}`}
+        actions={
+          <Badge variant="outline">{statusLabels[offer.status] || offer.status}</Badge>
+        }
+      />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Left column */}
+        <div className="space-y-6">
+          {/* Info Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Informations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <Building2 className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Entreprise</p>
+                    <p className="text-sm font-medium">{offer.company}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <MapPin className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Ville</p>
+                    <p className="text-sm">{offer.city}, {offer.country}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Briefcase className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Type de contrat</p>
+                    <p className="text-sm">{offer.contractType}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Globe className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Source</p>
+                    <p className="text-sm capitalize">{offer.source}</p>
+                  </div>
+                </div>
+                {offer.salary && (
+                  <div className="flex items-start gap-3">
+                    <DollarSign className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Salaire</p>
+                      <p className="text-sm">{offer.salary}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-start gap-3">
+                  <Calendar className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Date</p>
+                    <p className="text-sm">
+                      {new Date(offer.postedAt || offer.createdAt).toLocaleDateString("fr-FR", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <a
+                  href={offer.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                >
+                  Voir l&apos;offre originale
+                  <ExternalLink className="size-3.5" />
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Description Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Description</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                {offer.description}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* AI Analysis Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Analyse IA</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center py-4">
+                <ScoreDisplay score={offer.matchScore} />
+                <p className="text-xs text-muted-foreground mt-1">Match Score</p>
+              </div>
+
+              {offer.matchAnalysis ? (
+                <>
+                  <Separator className="my-3" />
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {offer.matchAnalysis}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Separator className="my-3" />
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Pas encore analyse
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Actions Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant={offer.status === "shortlisted" ? "default" : "outline"}
+                  className="w-full"
+                  onClick={() => handleStatusUpdate("shortlisted")}
+                >
+                  <Star className="size-4 mr-1.5" />
+                  {offer.status === "shortlisted" ? "Shortliste" : "Shortlister"}
+                </Button>
+                <Button
+                  variant={offer.status === "ignored" ? "secondary" : "outline"}
+                  className="w-full"
+                  onClick={() => handleStatusUpdate("ignored")}
+                >
+                  <XCircle className="size-4 mr-1.5" />
+                  {offer.status === "ignored" ? "Ignore" : "Ignorer"}
+                </Button>
+                <Button variant="outline" className="w-full" disabled>
+                  <Send className="size-4 mr-1.5" />
+                  Postuler
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

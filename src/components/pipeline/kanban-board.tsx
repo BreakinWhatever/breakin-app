@@ -54,6 +54,14 @@ interface OutreachData {
     sentAt: string | null;
     createdAt: string;
   }[];
+  inboundEmails?: {
+    id: string;
+    fromEmail: string;
+    fromName: string;
+    subject: string;
+    bodyText: string | null;
+    receivedAt: string;
+  }[];
 }
 
 interface Campaign {
@@ -104,6 +112,19 @@ function buildTimeline(outreach: OutreachData): TimelineEvent[] {
             : "Relance envoyee",
         description: `${email.subject}`,
         date: new Date(email.sentAt || email.createdAt),
+      });
+    }
+  }
+  if (outreach.inboundEmails) {
+    for (const inbound of outreach.inboundEmails) {
+      events.push({
+        id: `inbound-${inbound.id}`,
+        type: "reply_content",
+        title: `Reponse: ${inbound.subject}`,
+        description: inbound.bodyText
+          ? inbound.bodyText.substring(0, 150) + (inbound.bodyText.length > 150 ? "..." : "")
+          : undefined,
+        date: new Date(inbound.receivedAt),
       });
     }
   }

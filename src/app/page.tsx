@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import MetricsBar from "@/components/dashboard/metrics-bar";
 import ActionsPanel from "@/components/dashboard/actions-panel";
+import PipelineFunnel from "@/components/dashboard/pipeline-funnel";
+import ActivityHeatmap from "@/components/dashboard/activity-heatmap";
+import ResponseRateChart from "@/components/dashboard/response-rate-chart";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Select,
@@ -128,6 +131,16 @@ export default function DashboardPage() {
         dateTo={dateTo}
       />
       <ActionsPanel campaignId={selectedCampaign} />
+
+      {/* Analytics section */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Analytiques</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <PipelineFunnel campaignId={selectedCampaign} />
+          <ResponseRateChart campaignId={selectedCampaign} />
+        </div>
+        <ActivityHeatmap campaignId={selectedCampaign} />
+      </div>
     </div>
   );
 }

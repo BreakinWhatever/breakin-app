@@ -22,6 +22,7 @@ model Company {
 
   contacts Contact[]
   events   Event[]
+  offers   JobOffer[]
 }
 
 model Contact {
@@ -39,9 +40,11 @@ model Contact {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company    Company    @relation(fields: [companyId], references: [id])
-  outreaches Outreach[]
-  events     Event[]
+  company       Company        @relation(fields: [companyId], references: [id])
+  outreaches    Outreach[]
+  events        Event[]
+  inboundEmails InboundEmail[]
+  applications  Application[]
 }
 
 model Campaign {
@@ -71,10 +74,11 @@ model Outreach {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  contact  Contact  @relation(fields: [contactId], references: [id])
-  campaign Campaign @relation(fields: [campaignId], references: [id])
-  emails   Email[]
-  events   Event[]
+  contact       Contact        @relation(fields: [contactId], references: [id])
+  campaign      Campaign       @relation(fields: [campaignId], references: [id])
+  emails        Email[]
+  events        Event[]
+  inboundEmails InboundEmail[]
 
   @@unique([contactId, campaignId])
 }
@@ -132,4 +136,119 @@ model Event {
   contact    Contact?  @relation(fields: [contactId], references: [id])
   company    Company?  @relation(fields: [companyId], references: [id])
   outreach   Outreach? @relation(fields: [outreachId], references: [id])
+}
+
+// --- SP2: Email Reception ---
+
+model InboundEmail {
+  id             String    @id @default(cuid())
+  resendId       String?   @unique
+  fromEmail      String
+  fromName       String    @default("")
+  toEmail        String
+  subject        String
+  bodyText       String?
+  bodyHtml       String?
+  rawWebhookData Json?
+  contactId      String?
+  outreachId     String?
+  forwardedAt    DateTime?
+  receivedAt     DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+
+  contact  Contact?  @relation(fields: [contactId], references: [id])
+  outreach Outreach? @relation(fields: [outreachId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  body      String?
+  read      Boolean  @default(false)
+  data      Json?
+  createdAt DateTime @default(now())
+}
+
+// --- SP4: Job Offer Scraping ---
+
+model JobOffer {
+  id            String    @id @default(cuid())
+  title         String
+  company       String
+  companyId     String?
+  city          String
+  country       String    @default("France")
+  contractType  String    @default("CDI")
+  description   String
+  url           String    @unique
+  source        String
+  salary        String?
+  matchScore    Int?
+  matchAnalysis String?
+  status        String    @default("new")
+  postedAt      DateTime?
+  scrapedAt     DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  companyRef   Company?      @relation(fields: [companyId], references: [id])
+  applications Application[]
+}
+
+model ScrapeRun {
+  id        String    @id @default(cuid())
+  source    String
+  status    String    @default("running")
+  jobsFound Int       @default(0)
+  jobsNew   Int       @default(0)
+  error     String?
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+}
+
+// --- SP5: Applications ---
+
+model Application {
+  id            String    @id @default(cuid())
+  offerId       String?
+  contactId     String?
+  companyName   String
+  role          String
+  source        String    @default("manual")
+  status        String    @default("draft")
+  appliedAt     DateTime?
+  coverLetterId String?
+  notes         String?
+  nextStep      String?
+  nextStepDate  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  offer       JobOffer?    @relation(fields: [offerId], references: [id])
+  contact     Contact?     @relation(fields: [contactId], references: [id])
+  coverLetter CoverLetter? @relation(fields: [coverLetterId], references: [id])
+}
+
+model CoverLetter {
+  id           String        @id @default(cuid())
+  title        String
+  body         String
+  language     String        @default("fr")
+  offerId      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  applications Application[]
+}
+
+// --- SP7: Scheduled Recaps ---
+
+model Recap {
+  id        String   @id @default(cuid())
+  type      String
+  period    String
+  content   String
+  metrics   String   @default("{}")
+  sentVia   String   @default("[]")
+  createdAt DateTime @default(now())
 }
