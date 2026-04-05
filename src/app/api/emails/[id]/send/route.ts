@@ -10,7 +10,7 @@ export async function POST(
   try {
     const { id } = await params;
 
-    // Find the email with full context
+    // Find the email with full context including campaign template for language
     const email = await prisma.email.findUnique({
       where: { id },
       include: {
@@ -18,6 +18,11 @@ export async function POST(
           include: {
             contact: true,
             emails: true,
+            campaign: {
+              include: {
+                template: true,
+              },
+            },
           },
         },
       },
@@ -58,15 +63,16 @@ export async function POST(
       );
     }
 
-    // Send via Apollo API
-    const emailAccountId = process.env.APOLLO_EMAIL_ACCOUNT_ID ?? "";
-    const toAddress = email.outreach.contact.email;
+    // Determine language from the campaign's template (default: "fr")
+    const language =
+      email.outreach.campaign?.template?.language ?? "fr";
 
+    // Send via AgentMail API
     await sendEmail({
-      emailAccountId,
-      to: toAddress,
+      to: email.outreach.contact.email,
       subject: email.subject,
       body: email.body,
+      language,
     });
 
     const now = new Date();
@@ -110,9 +116,10 @@ export async function POST(
       maxPerDay,
     });
   } catch (error) {
-    console.error("POST /api/emails/[id]/send error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("POST /api/emails/[id]/send error:", message);
     return Response.json(
-      { error: "Failed to send email" },
+      { error: message },
       { status: 500 }
     );
   }

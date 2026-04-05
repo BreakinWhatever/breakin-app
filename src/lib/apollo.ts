@@ -209,26 +209,26 @@ export async function revealPeople(personIds: string[]) {
   return results;
 }
 
-export async function sendEmail(options: SendEmailOptions) {
-  const apiKey = await getApolloApiKey();
-  const response = await fetch(`${APOLLO_BASE_URL}/v1/emailer/send`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Api-Key": apiKey,
-    },
-    body: JSON.stringify({
-      email_account_id: options.emailAccountId,
-      to: options.to,
-      subject: options.subject,
-      body: options.body,
-    }),
+// ---------- Email Sending (via AgentMail) ----------
+
+import { sendEmailViaAgentMail } from "@/lib/agentmail";
+
+/**
+ * Send an email via AgentMail.
+ * Kept as a wrapper for backward compatibility with existing call sites.
+ * The `language` parameter determines which AgentMail inbox to send from:
+ *   "fr" -> candidatures inbox, "en" -> applications inbox.
+ */
+export async function sendEmail(options: {
+  to: string;
+  subject: string;
+  body: string;
+  language?: string;
+}) {
+  return sendEmailViaAgentMail({
+    to: options.to,
+    subject: options.subject,
+    body: options.body,
+    language: options.language ?? "fr",
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Apollo sendEmail error ${response.status}: ${text}`);
-  }
-
-  return response.json();
 }
