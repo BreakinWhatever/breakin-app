@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Campaign {
   id: string;
@@ -18,10 +21,13 @@ interface Campaign {
   };
 }
 
-const statusConfig: Record<string, { label: string; classes: string }> = {
-  draft: { label: "Brouillon", classes: "bg-gray-100 text-gray-600" },
-  active: { label: "Active", classes: "bg-green-100 text-green-700" },
-  paused: { label: "En pause", classes: "bg-yellow-100 text-yellow-700" },
+const statusConfig: Record<
+  string,
+  { label: string; variant: "default" | "secondary" | "outline" }
+> = {
+  draft: { label: "Brouillon", variant: "secondary" },
+  active: { label: "Active", variant: "default" },
+  paused: { label: "En pause", variant: "outline" },
 };
 
 export default function CampaignList({ refreshKey }: { refreshKey?: number }) {
@@ -38,14 +44,20 @@ export default function CampaignList({ refreshKey }: { refreshKey?: number }) {
   }, [refreshKey]);
 
   if (loading) {
-    return <div className="text-gray-400 text-sm py-8 text-center">Chargement...</div>;
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 w-full rounded-xl" />
+        ))}
+      </div>
+    );
   }
 
   if (campaigns.length === 0) {
     return (
-      <div className="text-gray-400 text-sm py-8 text-center">
-        Aucune campagne. Cr&eacute;ez-en une pour commencer.
-      </div>
+      <p className="text-muted-foreground text-sm py-8 text-center">
+        Aucune campagne. Creez-en une pour commencer.
+      </p>
     );
   }
 
@@ -54,34 +66,30 @@ export default function CampaignList({ refreshKey }: { refreshKey?: number }) {
       {campaigns.map((c) => {
         const config = statusConfig[c.status] || statusConfig.draft;
         return (
-          <Link
-            key={c.id}
-            href={`/campaigns/${c.id}`}
-            className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow block"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-base font-semibold text-gray-900">
-                  {c.name}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {c.targetRole} &middot; {c.targetCity}
-                </p>
-              </div>
-              <span
-                className={`text-xs px-2.5 py-1 rounded-full font-medium ${config.classes}`}
-              >
-                {config.label}
-              </span>
-            </div>
-            <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
-              <span>{c._count.outreaches} contact(s)</span>
-              {c.template && <span>Template: {c.template.name}</span>}
-              <span>
-                Cr&eacute;&eacute;e le{" "}
-                {new Date(c.createdAt).toLocaleDateString("fr-FR")}
-              </span>
-            </div>
+          <Link key={c.id} href={`/campaigns/${c.id}`}>
+            <Card className="transition-shadow hover:shadow-md cursor-pointer">
+              <CardContent>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold">
+                      {c.name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {c.targetRole} &middot; {c.targetCity}
+                    </p>
+                  </div>
+                  <Badge variant={config.variant}>{config.label}</Badge>
+                </div>
+                <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                  <span>{c._count.outreaches} contact(s)</span>
+                  {c.template && <span>Template: {c.template.name}</span>}
+                  <span>
+                    Creee le{" "}
+                    {new Date(c.createdAt).toLocaleDateString("fr-FR")}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
           </Link>
         );
       })}

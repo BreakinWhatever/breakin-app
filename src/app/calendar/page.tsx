@@ -326,7 +326,7 @@ export default function CalendarPage() {
           Entretien
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-blue-600" />
+          <span className="w-3 h-3 rounded-full bg-blue-500" />
           Relance
         </div>
         <div className="flex items-center gap-2">

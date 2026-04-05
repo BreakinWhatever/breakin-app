@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Search, Download, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface ApolloResult {
   id: string;
@@ -61,7 +62,7 @@ export default function ApolloImportDialog({
       setSelected(new Set(people.map((_: ApolloResult, i: number) => i)));
       setSearchDone(true);
     } catch {
-      alert("Erreur lors de la recherche Apollo");
+      toast.error("Erreur lors de la recherche Apollo");
     } finally {
       setSearching(false);
     }
@@ -80,13 +81,13 @@ export default function ApolloImportDialog({
       });
       if (!res.ok) throw new Error("Import failed");
       const data = await res.json();
-      alert(
+      toast.success(
         `Import termine : ${data.created} cree(s), ${data.skipped} ignore(s)`
       );
       onImported();
       onClose();
     } catch {
-      alert("Erreur lors de l'import");
+      toast.error("Erreur lors de l'import");
     } finally {
       setImporting(false);
     }

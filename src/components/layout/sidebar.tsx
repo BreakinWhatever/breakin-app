@@ -31,6 +31,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import type { LucideIcon } from "lucide-react";
+import { ThemeToggle } from "./theme-toggle";
 
 interface NavItem {
   label: string;
@@ -195,8 +196,8 @@ export default function Sidebar() {
       </nav>
 
       {/* User info */}
-      {!collapsed && (
-        <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border">
+        {!collapsed ? (
           <div className="flex items-center gap-3">
             <Avatar size="default">
               <AvatarFallback>OT</AvatarFallback>
@@ -207,9 +208,14 @@ export default function Sidebar() {
                 ousmane.thienta@audencia.com
               </p>
             </div>
+            <ThemeToggle />
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex justify-center">
+            <ThemeToggle />
+          </div>
+        )}
+      </div>
     </aside>
   );
 }

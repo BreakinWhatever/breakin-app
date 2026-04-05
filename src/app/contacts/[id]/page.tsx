@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Email {
   id: string;
@@ -41,19 +47,29 @@ interface ContactDetail {
   outreaches: Outreach[];
 }
 
-const priorityColors: Record<number, string> = {
-  1: "bg-red-100 text-red-700",
-  2: "bg-orange-100 text-orange-700",
-  3: "bg-yellow-100 text-yellow-700",
-  4: "bg-blue-100 text-blue-700",
-  5: "bg-gray-100 text-gray-600",
+const priorityConfig: Record<
+  number,
+  { variant: "destructive" | "default" | "secondary" | "outline"; className?: string }
+> = {
+  1: { variant: "destructive" },
+  2: { variant: "default", className: "bg-orange-500/10 text-orange-600 border-transparent dark:text-orange-400" },
+  3: { variant: "default", className: "bg-yellow-500/10 text-yellow-600 border-transparent dark:text-yellow-400" },
+  4: { variant: "default", className: "bg-blue-500/10 text-blue-600 border-transparent dark:text-blue-400" },
+  5: { variant: "secondary" },
 };
 
 const statusLabels: Record<string, string> = {
   draft: "Brouillon",
-  approved: "Approuv\u00e9",
-  sent: "Envoy\u00e9",
-  ignored: "Ignor\u00e9",
+  approved: "Approuve",
+  sent: "Envoye",
+  ignored: "Ignore",
+};
+
+const emailStatusVariants: Record<string, "default" | "secondary" | "outline"> = {
+  sent: "default",
+  draft: "secondary",
+  approved: "outline",
+  ignored: "outline",
 };
 
 export default function ContactDetailPage() {
@@ -76,11 +92,27 @@ export default function ContactDetailPage() {
   }, [params.id]);
 
   if (loading) {
-    return <div className="text-gray-400 text-sm py-12 text-center">Chargement...</div>;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
 
   if (!contact) {
-    return <div className="text-gray-400 text-sm py-12 text-center">Contact introuvable</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className="text-sm text-muted-foreground">Contact introuvable</p>
+        <Link href="/contacts">
+          <Button variant="outline" className="mt-4">
+            <ArrowLeft className="size-4 mr-1" />
+            Retour aux contacts
+          </Button>
+        </Link>
+      </div>
+    );
   }
 
   const allEmails = contact.outreaches.flatMap((o) =>
@@ -90,125 +122,135 @@ export default function ContactDetailPage() {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
+  const pConfig = priorityConfig[contact.priority] || priorityConfig[5];
+
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/contacts" className="text-sm text-blue-600 hover:text-blue-700">
-          &larr; Retour aux contacts
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+        <Link href="/contacts">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="size-3.5 mr-1" />
+            Contacts
+          </Button>
         </Link>
+        <span>/</span>
+        <span className="font-medium text-foreground">
+          {contact.firstName} {contact.lastName}
+        </span>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {contact.firstName} {contact.lastName}
-            </h1>
-            <p className="text-gray-500 mt-1">{contact.title}</p>
-          </div>
-          <span
-            className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-              priorityColors[contact.priority] || priorityColors[3]
-            }`}
-          >
+      <PageHeader
+        title={`${contact.firstName} ${contact.lastName}`}
+        description={contact.title}
+        actions={
+          <Badge variant={pConfig.variant} className={pConfig.className}>
             P{contact.priority}
-          </span>
-        </div>
+          </Badge>
+        }
+      />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Email</p>
-            <p className="text-sm text-gray-900 mt-1">{contact.email}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">
-              Entreprise
-            </p>
-            <Link
-              href={`/companies/${contact.company.id}`}
-              className="text-sm text-blue-600 hover:text-blue-700 mt-1 block"
-            >
-              {contact.company.name}
-            </Link>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">Source</p>
-            <p className="text-sm text-gray-900 mt-1 capitalize">{contact.source}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase font-medium">LinkedIn</p>
-            {contact.linkedinUrl ? (
-              <a
-                href={contact.linkedinUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:text-blue-700 mt-1 block truncate"
+      {/* Info card */}
+      <Card>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase font-medium">
+                Email
+              </p>
+              <p className="text-sm">{contact.email}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase font-medium">
+                Entreprise
+              </p>
+              <Link
+                href={`/companies/${contact.company.id}`}
+                className="text-sm text-primary hover:underline block"
               >
-                Profil LinkedIn
-              </a>
-            ) : (
-              <p className="text-sm text-gray-400 mt-1">-</p>
-            )}
+                {contact.company.name}
+              </Link>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase font-medium">
+                Source
+              </p>
+              <p className="text-sm capitalize">{contact.source}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase font-medium">
+                LinkedIn
+              </p>
+              {contact.linkedinUrl ? (
+                <a
+                  href={contact.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline block truncate"
+                >
+                  Profil LinkedIn
+                </a>
+              ) : (
+                <p className="text-sm text-muted-foreground">-</p>
+              )}
+            </div>
           </div>
-        </div>
 
-        {contact.notes && (
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-400 uppercase font-medium mb-1">
-              Notes
+          {contact.notes && (
+            <div className="mt-4 p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground uppercase font-medium mb-1">
+                Notes
+              </p>
+              <p className="text-sm">{contact.notes}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Email history */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Historique des emails</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {allEmails.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Aucun email envoye
             </p>
-            <p className="text-sm text-gray-700">{contact.notes}</p>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Historique des emails
-        </h2>
-        {allEmails.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">
-            Aucun email envoy&eacute;
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {allEmails.map((email) => (
-              <div
-                key={email.id}
-                className="border border-gray-100 rounded-lg p-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full capitalize">
-                      {email.type}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        email.status === "sent"
-                          ? "bg-green-100 text-green-700"
-                          : email.status === "draft"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {statusLabels[email.status] || email.status}
+          ) : (
+            <div className="space-y-3">
+              {allEmails.map((email) => (
+                <div
+                  key={email.id}
+                  className="border border-border rounded-lg p-4"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="capitalize">
+                        {email.type}
+                      </Badge>
+                      <Badge
+                        variant={emailStatusVariants[email.status] ?? "outline"}
+                      >
+                        {statusLabels[email.status] || email.status}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(email.createdAt).toLocaleDateString("fr-FR")}
                     </span>
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {new Date(email.createdAt).toLocaleDateString("fr-FR")}
-                  </span>
+                  <p className="text-sm font-medium">
+                    {email.subject}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-3">
+                    {email.body}
+                  </p>
                 </div>
-                <p className="text-sm font-medium text-gray-900">
-                  {email.subject}
-                </p>
-                <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap line-clamp-3">
-                  {email.body}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
