@@ -209,23 +209,17 @@ export async function revealPeople(personIds: string[]) {
   return results;
 }
 
-// ---------- Email Sending (via AgentMail) ----------
+// ---------- Email Sending (via Resend) ----------
 
-import { sendEmailViaAgentMail } from "@/lib/agentmail";
+import { sendEmailViaResend } from "@/lib/resend";
 
-/**
- * Send an email via AgentMail.
- * Kept as a wrapper for backward compatibility with existing call sites.
- * The `language` parameter determines which AgentMail inbox to send from:
- *   "fr" -> candidatures inbox, "en" -> applications inbox.
- */
 export async function sendEmail(options: {
   to: string;
   subject: string;
   body: string;
   language?: string;
 }) {
-  return sendEmailViaAgentMail({
+  return sendEmailViaResend({
     to: options.to,
     subject: options.subject,
     body: options.body,
