@@ -3,6 +3,16 @@
 import { useEffect, useState } from "react";
 import MetricsBar from "@/components/dashboard/metrics-bar";
 import ActionsPanel from "@/components/dashboard/actions-panel";
+import { PageHeader } from "@/components/shared/page-header";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface Campaign {
   id: string;
@@ -39,94 +49,76 @@ export default function DashboardPage() {
       });
   }, []);
 
+  function setPeriod(days: number) {
+    const now = new Date();
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    setDateFrom(formatDateForInput(d));
+    setDateTo(formatDateForInput(now));
+  }
+
   if (!mounted) {
-    return (
-      <div className="text-gray-400 text-sm py-12 text-center">
-        Chargement...
-      </div>
-    );
+    return null;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Vue d&apos;ensemble de votre activite de prospection
-          </p>
-        </div>
-        <select
-          value={selectedCampaign}
-          onChange={(e) => setSelectedCampaign(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-        >
-          <option value="">Toutes les campagnes</option>
-          {campaigns.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description="Vue d'ensemble de votre activite de prospection"
+        actions={
+          <Select
+            value={selectedCampaign}
+            onValueChange={(val) => setSelectedCampaign(val ?? "")}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Toutes les campagnes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Toutes les campagnes</SelectItem>
+              {campaigns.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
 
       {/* Period selector */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            Periode
-          </span>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500">Du</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500">Au</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            />
-          </div>
-          <button
-            onClick={() => {
-              const d = new Date();
-              d.setDate(d.getDate() - 7);
-              setDateFrom(formatDateForInput(d));
-              setDateTo(formatDateForInput(new Date()));
-            }}
-            className="text-xs text-gray-400 hover:text-blue-600 px-2 py-1 rounded border border-gray-200"
-          >
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Periode
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Du</span>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="w-[150px]"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Au</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="w-[150px]"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" onClick={() => setPeriod(7)}>
             7j
-          </button>
-          <button
-            onClick={() => {
-              const d = new Date();
-              d.setDate(d.getDate() - 30);
-              setDateFrom(formatDateForInput(d));
-              setDateTo(formatDateForInput(new Date()));
-            }}
-            className="text-xs text-gray-400 hover:text-blue-600 px-2 py-1 rounded border border-gray-200"
-          >
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setPeriod(30)}>
             30j
-          </button>
-          <button
-            onClick={() => {
-              const d = new Date();
-              d.setDate(d.getDate() - 90);
-              setDateFrom(formatDateForInput(d));
-              setDateTo(formatDateForInput(new Date()));
-            }}
-            className="text-xs text-gray-400 hover:text-blue-600 px-2 py-1 rounded border border-gray-200"
-          >
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setPeriod(90)}>
             90j
-          </button>
+          </Button>
         </div>
       </div>
 
