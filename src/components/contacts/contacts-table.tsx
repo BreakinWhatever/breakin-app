@@ -1,14 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
+import { type ColumnDef } from "@tanstack/react-table";
+import { Copy, Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/components/shared/data-table";
+import { Users } from "lucide-react";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 
-interface Contact {
+export interface ContactRow {
   id: string;
   firstName: string;
   lastName: string;
   title: string;
   email: string;
+  phone: string | null;
+  linkedinUrl: string | null;
+  notes: string | null;
   priority: number;
   source: string;
   company: {
@@ -16,20 +29,23 @@ interface Contact {
     name: string;
     website: string | null;
   };
+  outreaches?: {
+    id: string;
+    status: string;
+    lastContactDate: string | null;
+    emails?: {
+      id: string;
+      type: string;
+      subject: string;
+      body: string;
+      status: string;
+      sentAt: string | null;
+      createdAt: string;
+    }[];
+  }[];
 }
 
-interface Company {
-  id: string;
-  name: string;
-}
-
-const priorityColors: Record<number, string> = {
-  1: "bg-red-100 text-red-700",
-  2: "bg-orange-100 text-orange-700",
-  3: "bg-yellow-100 text-yellow-700",
-  4: "bg-blue-100 text-blue-700",
-  5: "bg-gray-100 text-gray-600",
-};
+// --- Helpers ---
 
 function extractDomain(website: string): string {
   try {
@@ -43,7 +59,7 @@ function extractDomain(website: string): string {
 function CompanyLogo({
   companyName,
   companyWebsite,
-  size = 24,
+  size = 20,
 }: {
   companyName: string;
   companyWebsite?: string | null;
@@ -55,7 +71,7 @@ function CompanyLogo({
   if (!domain || imgError) {
     return (
       <span
-        className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-500 text-xs font-medium flex-shrink-0"
+        className="inline-flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-medium shrink-0"
         style={{ width: size, height: size, fontSize: size * 0.45 }}
       >
         {companyName.charAt(0).toUpperCase()}
@@ -69,178 +85,149 @@ function CompanyLogo({
       alt={companyName}
       width={size}
       height={size}
-      className="rounded-full flex-shrink-0 bg-gray-100"
+      className="rounded-full shrink-0 bg-muted"
       onError={() => setImgError(true)}
     />
   );
 }
 
-export default function ContactsTable() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [search, setSearch] = useState("");
-  const [filterCompany, setFilterCompany] = useState("");
-  const [filterSource, setFilterSource] = useState("");
-  const [filterPriority, setFilterPriority] = useState("");
-  const [loading, setLoading] = useState(true);
+function CopyableEmail({ email }: { email: string }) {
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/companies")
-      .then((r) => r.json())
-      .then((data) => {
-        setCompanies(Array.isArray(data) ? data : []);
-      });
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    if (filterCompany) params.set("companyId", filterCompany);
-    if (filterSource) params.set("source", filterSource);
-    if (filterPriority) params.set("priority", filterPriority);
-    const qs = params.toString();
-    fetch(`/api/contacts${qs ? `?${qs}` : ""}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setContacts(Array.isArray(data) ? data : []);
-      })
-      .finally(() => setLoading(false));
-  }, [search, filterCompany, filterSource, filterPriority]);
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(email);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="p-4 border-b border-gray-100 space-y-3">
-        <input
-          type="text"
-          placeholder="Rechercher un contact..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-md px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          onClick={handleCopy}
+        >
+          <span className="truncate max-w-[180px]">{email}</span>
+          {copied ? (
+            <Check className="size-3 text-emerald-500 shrink-0" />
+          ) : (
+            <Copy className="size-3 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity" />
+          )}
+        </TooltipTrigger>
+        <TooltipContent>{copied ? "Copie !" : "Copier l'email"}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+// --- Priority badge config ---
+
+const priorityConfig: Record<number, { label: string; variant: "destructive" | "default" | "secondary" | "outline"; className?: string }> = {
+  1: { label: "P1", variant: "destructive" },
+  2: { label: "P2", variant: "default", className: "bg-orange-500/10 text-orange-600 border-transparent dark:text-orange-400" },
+  3: { label: "P3", variant: "default", className: "bg-blue-500/10 text-blue-600 border-transparent dark:text-blue-400" },
+  4: { label: "P4", variant: "secondary" },
+  5: { label: "P5", variant: "secondary" },
+};
+
+// --- Column definitions ---
+
+export const contactColumns: ColumnDef<ContactRow, unknown>[] = [
+  {
+    accessorFn: (row) => `${row.firstName} ${row.lastName}`,
+    id: "name",
+    header: "Nom",
+    enableSorting: true,
+    cell: ({ row }) => (
+      <span className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+        {row.original.firstName} {row.original.lastName}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "title",
+    header: "Titre",
+    enableSorting: true,
+    cell: ({ getValue }) => (
+      <span className="text-sm text-muted-foreground truncate max-w-[200px] block">
+        {getValue() as string}
+      </span>
+    ),
+  },
+  {
+    accessorFn: (row) => row.company.name,
+    id: "company",
+    header: "Entreprise",
+    enableSorting: true,
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <CompanyLogo
+          companyName={row.original.company.name}
+          companyWebsite={row.original.company.website}
+          size={20}
         />
-        <div className="flex flex-wrap gap-3">
-          <select
-            value={filterCompany}
-            onChange={(e) => setFilterCompany(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-          >
-            <option value="">Toutes les entreprises</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={filterSource}
-            onChange={(e) => setFilterSource(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-          >
-            <option value="">Toutes les sources</option>
-            <option value="apollo">Apollo</option>
-            <option value="manual">Manuel</option>
-          </select>
-          <select
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-          >
-            <option value="">Toutes les priorites</option>
-            <option value="1">P1</option>
-            <option value="2">P2</option>
-            <option value="3">P3</option>
-            <option value="4">P4</option>
-            <option value="5">P5</option>
-          </select>
-        </div>
+        <span className="text-sm">{row.original.company.name}</span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                Nom
-              </th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                Titre
-              </th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                Entreprise
-              </th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                Email
-              </th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                Priorite
-              </th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-3">
-                Source
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="text-center py-8 text-gray-400 text-sm">
-                  Chargement...
-                </td>
-              </tr>
-            ) : contacts.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center py-8 text-gray-400 text-sm">
-                  Aucun contact trouve
-                </td>
-              </tr>
-            ) : (
-              contacts.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/contacts/${c.id}`}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      {c.firstName} {c.lastName}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {c.title}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/companies/${c.company.id}`}
-                      className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
-                    >
-                      <CompanyLogo
-                        companyName={c.company.name}
-                        companyWebsite={c.company.website}
-                        size={24}
-                      />
-                      {c.company.name}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {c.email}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        priorityColors[c.priority] || priorityColors[3]
-                      }`}
-                    >
-                      P{c.priority}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 capitalize">
-                    {c.source}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    ),
+  },
+  {
+    accessorKey: "email",
+    header: "Email",
+    enableSorting: false,
+    cell: ({ row }) => <CopyableEmail email={row.original.email} />,
+  },
+  {
+    accessorKey: "priority",
+    header: "Priorite",
+    enableSorting: true,
+    cell: ({ getValue }) => {
+      const priority = getValue() as number;
+      const config = priorityConfig[priority] || priorityConfig[4];
+      return (
+        <Badge variant={config.variant} className={config.className}>
+          {config.label}
+        </Badge>
+      );
+    },
+  },
+  {
+    accessorKey: "source",
+    header: "Source",
+    enableSorting: false,
+    cell: ({ getValue }) => (
+      <Badge variant="outline" className="capitalize">
+        {getValue() as string}
+      </Badge>
+    ),
+  },
+];
+
+// --- Main component ---
+
+interface ContactsTableProps {
+  contacts: ContactRow[];
+  loading: boolean;
+  onRowClick: (contact: ContactRow) => void;
+}
+
+export default function ContactsTable({
+  contacts,
+  loading,
+  onRowClick,
+}: ContactsTableProps) {
+  return (
+    <DataTable
+      columns={contactColumns}
+      data={contacts}
+      loading={loading}
+      onRowClick={onRowClick}
+      emptyState={{
+        icon: Users,
+        title: "Aucun contact",
+        description:
+          "Importez vos premiers contacts depuis Apollo ou ajoutez-les manuellement.",
+      }}
+    />
   );
 }
