@@ -1,6 +1,16 @@
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 
+function getNextBusinessDay(): Date {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  // Skip weekends: Saturday (6) -> Monday, Sunday (0) -> Monday
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date.setDate(date.getDate() + 1);
+  }
+  return date;
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -76,6 +86,9 @@ export async function PUT(
       body.nextActionDate = new Date(body.nextActionDate);
     }
 
+    // Check if we're transitioning to "interview" status
+    const isMovingToInterview = body.status === "interview";
+
     await prisma.outreach.update({
       where: { id },
       data: body,
@@ -88,6 +101,32 @@ export async function PUT(
         campaign: true,
       },
     });
+
+    // Auto-create interview event when status moves to "interview"
+    if (isMovingToInterview && outreach) {
+      const nextBusinessDay = getNextBusinessDay();
+      nextBusinessDay.setHours(10, 0, 0, 0);
+      const endTime = new Date(nextBusinessDay);
+      endTime.setHours(11, 0, 0, 0);
+
+      const contactName = outreach.contact
+        ? `${outreach.contact.firstName} ${outreach.contact.lastName}`
+        : "";
+      const companyName = outreach.contact?.company?.name ?? "";
+      const title = `Entretien${companyName ? ` — ${companyName}` : ""}${contactName ? ` (${contactName})` : ""}`;
+
+      await prisma.event.create({
+        data: {
+          title,
+          startDate: nextBusinessDay,
+          endDate: endTime,
+          type: "interview",
+          contactId: outreach.contactId,
+          companyId: outreach.contact?.companyId ?? null,
+          outreachId: outreach.id,
+        },
+      });
+    }
 
     return Response.json(outreach);
   } catch (error) {

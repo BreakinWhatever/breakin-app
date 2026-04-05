@@ -21,6 +21,7 @@ model Company {
   updatedAt DateTime @updatedAt
 
   contacts Contact[]
+  events   Event[]
 }
 
 model Contact {
@@ -40,6 +41,7 @@ model Contact {
 
   company    Company    @relation(fields: [companyId], references: [id])
   outreaches Outreach[]
+  events     Event[]
 }
 
 model Campaign {
@@ -72,6 +74,7 @@ model Outreach {
   contact  Contact  @relation(fields: [contactId], references: [id])
   campaign Campaign @relation(fields: [campaignId], references: [id])
   emails   Email[]
+  events   Event[]
 
   @@unique([contactId, campaignId])
 }
@@ -108,4 +111,25 @@ model Template {
 model Setting {
   key   String @id
   value String
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  type        String   @default("interview")
+  contactId   String?
+  companyId   String?
+  outreachId  String?
+  location    String?
+  notes       String?
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contact    Contact?  @relation(fields: [contactId], references: [id])
+  company    Company?  @relation(fields: [companyId], references: [id])
+  outreach   Outreach? @relation(fields: [outreachId], references: [id])
 }
