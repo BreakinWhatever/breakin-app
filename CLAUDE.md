@@ -289,3 +289,9 @@ Send Telegram notification for any offer with score >= 85:
 
 # sync-test
 # manual-test
+# test-1775492144
+test
+# final-test-1775492355
+# test-1775492387
+test-direct-1775492405
+# triggered-1775492423
