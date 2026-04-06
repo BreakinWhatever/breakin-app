@@ -22,6 +22,7 @@ export default function WaitlistForm() {
       });
 
       if (res.ok) {
+        setEmail("");
         setState("success");
       } else {
         const data = await res.json();
