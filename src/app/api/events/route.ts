@@ -8,15 +8,18 @@ export async function GET(request: NextRequest) {
     const to = searchParams.get("to");
 
     const where: Record<string, unknown> = {};
-    if (from && to) {
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+
+    if (fromDate && !isNaN(fromDate.getTime()) && toDate && !isNaN(toDate.getTime())) {
       where.startDate = {
-        gte: new Date(from),
-        lte: new Date(to),
+        gte: fromDate,
+        lte: toDate,
       };
-    } else if (from) {
-      where.startDate = { gte: new Date(from) };
-    } else if (to) {
-      where.startDate = { lte: new Date(to) };
+    } else if (fromDate && !isNaN(fromDate.getTime())) {
+      where.startDate = { gte: fromDate };
+    } else if (toDate && !isNaN(toDate.getTime())) {
+      where.startDate = { lte: toDate };
     }
 
     const events = await prisma.event.findMany({

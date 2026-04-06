@@ -140,30 +140,30 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-border bg-card min-h-screen transition-all duration-200",
+        "flex flex-col border-r border-border bg-card h-screen sticky top-0 transition-all duration-200 overflow-hidden",
         collapsed ? "w-16" : "w-64"
       )}
     >
       {/* Header */}
-      <div className={cn("flex items-center p-4", collapsed ? "justify-center" : "justify-between")}>
-        {!collapsed && (
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">BreakIn</h1>
-            <p className="text-xs text-muted-foreground">Cold Outreach</p>
-          </div>
+      <div className={cn("flex items-center p-4", collapsed ? "flex-col gap-2" : "justify-between")}>
+        {!collapsed ? (
+          <>
+            <div className="flex items-center gap-3">
+              <img src="/icon.png" alt="BreakIn" className="size-10 shrink-0" />
+              <span className="text-xl font-bold tracking-tight">BreakIn</span>
+            </div>
+            <Button variant="ghost" size="icon" onClick={toggleCollapsed} aria-label="Collapse sidebar">
+              <PanelLeftClose className="size-5" />
+            </Button>
+          </>
+        ) : (
+          <>
+            <img src="/icon.png" alt="BreakIn" className="size-8" />
+            <Button variant="ghost" size="icon" onClick={toggleCollapsed} aria-label="Expand sidebar">
+              <PanelLeftOpen className="size-5" />
+            </Button>
+          </>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="size-5" />
-          ) : (
-            <PanelLeftClose className="size-5" />
-          )}
-        </Button>
       </div>
 
       {/* Main nav */}

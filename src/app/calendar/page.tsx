@@ -98,6 +98,7 @@ export default function CalendarPage() {
     try {
       const res = await fetch(`/api/events?from=${from}&to=${to}`);
       const data = await res.json();
+      console.log("[Calendar] fetched events:", data);
       setEvents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch events:", err);
@@ -296,6 +297,7 @@ export default function CalendarPage() {
               right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
             }}
             locale="fr"
+            timeZone="Europe/Paris"
             firstDay={1}
             selectable
             editable
