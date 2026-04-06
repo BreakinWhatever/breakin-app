@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 const PUBLIC_PATHS = [
   "/api/auth/token",       // Token management endpoint (protected by admin secret)
   "/api/calendar/feed",    // iCal feed is public (uses its own secret in URL)
+  "/api/waitlist",         // Waitlist signup — no auth required
 ];
 
 // Check if request comes from the app's own frontend (same origin)
