@@ -286,3 +286,6 @@ Send Telegram notification for any offer with score >= 85:
 {title} @ {company} ({city})
 {url}
 ```
+
+# sync-test
+# manual-test
