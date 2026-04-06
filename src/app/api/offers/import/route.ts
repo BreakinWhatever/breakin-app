@@ -1,21 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
-
-function detectContractType(title: string, _description: string, raw?: string): string {
-  const t = title.toLowerCase();
-
-  // Detect from title only (description has too many false positives)
-  if (/\bstage\b|\binternship\b|\bintern\b|off[- ]?cycle/.test(t)) return "Stage";
-  if (/\balternance\b|\bapprenti/.test(t)) return "Alternance";
-  if (/\bvie\b/.test(t)) return "VIE";
-  if (/\bcdd\b|\btemp\b|\btemporary\b|\bcontract\b|\bfreelance\b/.test(t)) return "CDD";
-
-  // Adzuna raw contract_type fallback
-  if (raw === "contract") return "CDD";
-  if (raw === "permanent") return "CDI";
-
-  return "CDI";
-}
+import { detectContractType } from "@/lib/offers";
 
 export async function POST(request: NextRequest) {
   try {
