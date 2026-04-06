@@ -52,33 +52,9 @@ export default function Navbar() {
         style={{ maxWidth: 1160, paddingLeft: 40, paddingRight: 40 }}
       >
         {/* Logo */}
-        <a href="#" className="flex items-center" style={{ gap: 8, textDecoration: "none" }}>
-          <div
-            className="flex items-center justify-center"
-            style={{
-              width: 32,
-              height: 32,
-              backgroundColor: "#151619",
-              borderRadius: 8,
-              flexShrink: 0,
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M4 14L9 4L14 14" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M6 10.5H12" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <span
-            style={{
-              fontSize: 20,
-              fontWeight: 800,
-              color: "#151619",
-              letterSpacing: "-0.04em",
-              lineHeight: 1,
-            }}
-          >
-            BreakIn
-          </span>
+        <a href="#" className="flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="BreakIn" style={{ height: 48, width: "auto" }} />
         </a>
 
         {/* Desktop nav links */}
