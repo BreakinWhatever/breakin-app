@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import WaitlistForm from "@/components/landing/waitlist-form";
 
 export default function CtaSection() {
   return (
@@ -44,32 +45,11 @@ export default function CtaSection() {
           </p>
 
           <div
-            className="flex flex-col sm:flex-row items-center justify-center"
-            style={{ marginTop: 40, gap: 16 }}
+            className="flex flex-col items-center"
+            style={{ marginTop: 40, gap: 12 }}
           >
-            <a
-              href="mailto:ousmane@breakin.io?subject=Early%20Access%20Request"
-              className="inline-flex items-center justify-center transition-colors hover:bg-[#151619]"
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                backgroundColor: "#25272D",
-                color: "#F3F3F5",
-                padding: "0 16px",
-                borderRadius: 8,
-                height: 50,
-              }}
-            >
-              Get early access
-            </a>
-            <span
-              style={{
-                fontSize: 14,
-                color: "#7F8491",
-              }}
-            >
-              Free during beta
-            </span>
+            <WaitlistForm />
+            <span style={{ fontSize: 14, color: "#7F8491" }}>Free during beta</span>
           </div>
         </motion.div>
 
