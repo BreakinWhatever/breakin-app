@@ -46,7 +46,7 @@ function Logo({ name, domain }: { name: string; domain: string }) {
       <span
         className="select-none"
         style={{
-          color: "rgba(21, 22, 25, 0.45)",
+          color: "rgba(21, 22, 25, 0.7)",
           fontWeight: 700,
           fontSize: 15,
           letterSpacing: "-0.02em",
