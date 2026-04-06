@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { useLang } from "@/lib/lang-context";
 
+// Row 1 → gauche : bulge bracket + boutiques
 const row1 = [
   { name: "Goldman Sachs", domain: "goldmansachs.com" },
   { name: "Morgan Stanley", domain: "morganstanley.com" },
@@ -13,8 +14,13 @@ const row1 = [
   { name: "BNP Paribas", domain: "bnpparibas.com" },
   { name: "Société Générale", domain: "societegenerale.com" },
   { name: "Natixis", domain: "natixis.com" },
+  { name: "Deutsche Bank", domain: "db.com" },
+  { name: "HSBC", domain: "hsbc.com" },
+  { name: "Barclays", domain: "barclays.com" },
+  { name: "Crédit Agricole CIB", domain: "ca-cib.com" },
 ];
 
+// Row 2 ← droite : PE + Private Credit + infra
 const row2 = [
   { name: "Ardian", domain: "ardian.com" },
   { name: "Tikehau Capital", domain: "tikehaucapital.com" },
@@ -24,17 +30,13 @@ const row2 = [
   { name: "Carlyle", domain: "carlyle.com" },
   { name: "PAI Partners", domain: "paipartners.com" },
   { name: "Cinven", domain: "cinven.com" },
-];
-
-const row3 = [
   { name: "Macquarie", domain: "macquarie.com" },
+  { name: "Antin", domain: "antin-ip.com" },
   { name: "Amundi", domain: "amundi.com" },
   { name: "AXA IM", domain: "axa-im.fr" },
   { name: "ING", domain: "ing.com" },
-  { name: "HSBC", domain: "hsbc.com" },
-  { name: "Deutsche Bank", domain: "db.com" },
-  { name: "Antin", domain: "antin-ip.com" },
-  { name: "Crédit Agricole CIB", domain: "ca-cib.com" },
+  { name: "Apollo", domain: "apollo.com" },
+  { name: "Ares Management", domain: "aresmgmt.com" },
 ];
 
 function Logo({ name, domain }: { name: string; domain: string }) {
@@ -187,8 +189,8 @@ export default function LogoBar() {
         transition={{ delay: 0.1 }}
         style={{ display: "flex", flexDirection: "column", gap: 12 }}
       >
-        <MarqueeRow companies={[...row1, ...row2]} direction="left" duration={35} />
-        <MarqueeRow companies={[...row3, ...row2]} direction="right" duration={28} />
+        <MarqueeRow companies={row1} direction="left" duration={40} />
+        <MarqueeRow companies={row2} direction="right" duration={35} />
       </motion.div>
     </section>
   );
