@@ -24,27 +24,9 @@ export async function POST(
       data: { status: "apply_requested" },
     });
 
-    // Detect language from title + description
-    const text = `${offer.title} ${offer.description}`.toLowerCase();
-    const isEnglish =
-      (text.match(/\b(the|and|for|with|our|you|will|have|this|that)\b/g) || []).length >
-      (text.match(/\b(le|la|les|et|pour|avec|notre|vous|sera|avez|cette)\b/g) || []).length;
-
-    const profile = isEnglish
-      ? "applications@ousmanethienta.com | CV EN"
-      : "candidatures@ousmanethienta.com | CV FR";
-
-    const score = offer.matchScore ? ` | Score: <b>${offer.matchScore}/100</b>` : "";
-    const city = `${offer.city}, ${offer.country}`;
-
-    // Telegram: start notification
-    await sendTelegram(
-      `🚀 <b>Candidature lancée</b>\n` +
-      `<b>${offer.title}</b> @ ${offer.company}\n` +
-      `📍 ${city}${score}\n` +
-      `📧 ${profile}\n` +
-      `🔗 <a href="${offer.url}">Voir l'offre</a>`
-    );
+    // Wake up the VPS agent — it handles everything from here
+    // (start notification, dev-browser, end notification)
+    await sendTelegram(`postule à cette offre ${offer.id}`);
 
     return Response.json(updated);
   } catch (error) {
