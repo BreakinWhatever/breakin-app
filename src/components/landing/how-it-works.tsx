@@ -172,7 +172,7 @@ export default function HowItWorks() {
               <div className="relative" style={{ zIndex: 1 }}>
                 <div
                   className="flex items-center"
-                  style={{ gap: 12, marginBottom: 16 }}
+                  style={{ gap: 12, marginBottom: 16, backgroundColor: "#fff", position: "relative", zIndex: 2, paddingRight: 12, width: "fit-content" }}
                 >
                   <span style={{ fontSize: 32 }}>{step.emoji}</span>
                   <span
