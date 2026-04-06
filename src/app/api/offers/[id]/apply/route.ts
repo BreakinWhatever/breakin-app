@@ -1,6 +1,25 @@
 import { prisma } from "@/lib/db";
-import { sendTelegram } from "@/lib/telegram";
 import { NextRequest } from "next/server";
+import { createHmac } from "crypto";
+
+const VPS_WEBHOOK = "http://46.225.210.206:9000/hooks/apply-offer";
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET!;
+
+async function triggerVPSApply(offerId: string) {
+  const payload = JSON.stringify({ offer_id: offerId });
+  const sig = createHmac("sha256", WEBHOOK_SECRET)
+    .update(payload)
+    .digest("hex");
+
+  await fetch(VPS_WEBHOOK, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Hub-Signature-256": `sha256=${sig}`,
+    },
+    body: payload,
+  }).catch(() => {}); // never throw
+}
 
 export async function POST(
   _request: NextRequest,
@@ -18,15 +37,13 @@ export async function POST(
       return Response.json({ error: "Already applied" }, { status: 409 });
     }
 
-    // Update status
     const updated = await prisma.jobOffer.update({
       where: { id },
       data: { status: "apply_requested" },
     });
 
-    // Wake up the VPS agent — it handles everything from here
-    // (start notification, dev-browser, end notification)
-    await sendTelegram(`postule à cette offre ${offer.id}`);
+    // Trigger VPS agent directly — agent handles all Telegram notifications
+    await triggerVPSApply(id);
 
     return Response.json(updated);
   } catch (error) {
