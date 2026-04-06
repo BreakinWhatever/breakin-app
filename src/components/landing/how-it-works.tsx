@@ -153,14 +153,27 @@ export default function HowItWorks() {
               transition={{ duration: 0.5, delay: i * 0.15 }}
               className="relative"
             >
-              {/* Connector line — starts after emoji+number, ends at start of next column */}
+              {/* Connector lines */}
               {i < t.steps.length - 1 && (
                 <div
                   className="hidden md:block absolute"
                   style={{
-                    top: 30,
-                    left: 125,
+                    top: 36,
+                    left: 108,
                     right: -32,
+                    height: 1,
+                    backgroundColor: "#E1E2E5",
+                    zIndex: 0,
+                  }}
+                />
+              )}
+              {i === t.steps.length - 1 && (
+                <div
+                  className="hidden md:block absolute"
+                  style={{
+                    top: 36,
+                    left: 108,
+                    width: 155,
                     height: 1,
                     backgroundColor: "#E1E2E5",
                     zIndex: 0,
