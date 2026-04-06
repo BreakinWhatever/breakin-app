@@ -7,13 +7,14 @@ export async function GET(request: NextRequest) {
     const city = searchParams.get("city");
     const sector = searchParams.get("sector");
     const search = searchParams.get("search");
+    const active = searchParams.get("active");
 
     const where: Record<string, unknown> = {};
     if (city) where.city = city;
     if (sector) where.sector = sector;
-    if (search) {
-      where.name = { contains: search };
-    }
+    if (search) where.name = { contains: search };
+    if (active === "true") where.active = true;
+    if (active === "false") where.active = false;
 
     const companies = await prisma.company.findMany({
       where,
@@ -57,6 +58,10 @@ export async function POST(request: NextRequest) {
         website: body.website ?? null,
         apolloId: body.apolloId ?? null,
         notes: body.notes ?? null,
+        atsType: body.atsType ?? null,
+        careerUrl: body.careerUrl ?? null,
+        atsConfig: body.atsConfig ?? null,
+        active: body.active ?? true,
       },
     });
 
