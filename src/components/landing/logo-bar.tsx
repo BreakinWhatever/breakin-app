@@ -124,21 +124,7 @@ function MarqueeRow({
         }}
       >
         {track.map((company, i) => (
-          <div
-            key={`${company.domain}-${i}`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "8px 16px",
-              borderRadius: 12,
-              border: "1px solid #E1E2E5",
-              backgroundColor: "#fff",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-              height: 52,
-              flexShrink: 0,
-            }}
-          >
+          <div key={`${company.domain}-${i}`} style={{ flexShrink: 0 }}>
             <Logo name={company.name} domain={company.domain} />
           </div>
         ))}
