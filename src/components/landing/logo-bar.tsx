@@ -1,71 +1,39 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
 import { useLang } from "@/lib/lang-context";
 
 const companies = [
-  { name: "Goldman Sachs", domain: "goldmansachs.com" },
-  { name: "Morgan Stanley", domain: "morganstanley.com" },
-  { name: "JPMorgan", domain: "jpmorgan.com" },
-  { name: "Rothschild & Co", domain: "rothschildandco.com" },
-  { name: "Lazard", domain: "lazard.com" },
-  { name: "BNP Paribas", domain: "bnpparibas.com" },
-  { name: "Société Générale", domain: "societegenerale.com" },
-  { name: "Natixis", domain: "natixis.com" },
-  { name: "Ardian", domain: "ardian.com" },
-  { name: "Tikehau Capital", domain: "tikehaucapital.com" },
-  { name: "Eurazeo", domain: "eurazeo.com" },
-  { name: "KKR", domain: "kkr.com" },
-  { name: "Blackstone", domain: "blackstone.com" },
-  { name: "Carlyle", domain: "carlyle.com" },
-  { name: "PAI Partners", domain: "paipartners.com" },
-  { name: "Macquarie", domain: "macquarie.com" },
-  { name: "Amundi", domain: "amundi.com" },
-  { name: "AXA IM", domain: "axa-im.com" },
-  { name: "ING", domain: "ing.com" },
-  { name: "HSBC", domain: "hsbc.com" },
-  { name: "Deutsche Bank", domain: "db.com" },
-  { name: "Antin", domain: "antin-ip.com" },
+  "Goldman Sachs",
+  "Morgan Stanley",
+  "JPMorgan",
+  "Rothschild & Co",
+  "Lazard",
+  "BNP Paribas",
+  "Société Générale",
+  "Natixis",
+  "Crédit Agricole CIB",
+  "Ardian",
+  "Tikehau Capital",
+  "Eurazeo",
+  "KKR",
+  "Blackstone",
+  "Carlyle",
+  "PAI Partners",
+  "Cinven",
+  "BC Partners",
+  "Macquarie",
+  "Amundi",
+  "AXA IM",
+  "ING",
+  "HSBC",
+  "Deutsche Bank",
+  "Antin",
+  "Pemberton",
 ];
 
-function CompanyLogo({ name, domain }: { name: string; domain: string }) {
-  const [failed, setFailed] = useState(false);
-
-  if (failed) {
-    return (
-      <span
-        className="select-none"
-        style={{
-          color: "rgba(21, 22, 25, 0.25)",
-          fontWeight: 600,
-          fontSize: 13,
-          letterSpacing: "-0.01em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {name}
-      </span>
-    );
-  }
-
-  return (
-    <img
-      src={`https://logo.clearbit.com/${domain}`}
-      alt={name}
-      height={28}
-      style={{
-        height: 28,
-        width: "auto",
-        maxWidth: 120,
-        filter: "grayscale(100%)",
-        opacity: 0.35,
-        display: "block",
-      }}
-      onError={() => setFailed(true)}
-    />
-  );
-}
+// Duplicate for seamless infinite loop
+const track = [...companies, ...companies];
 
 export default function LogoBar() {
   const lang = useLang();
@@ -76,42 +44,95 @@ export default function LogoBar() {
 
   return (
     <section style={{ marginBottom: 160 }}>
-      <div
-        className="mx-auto"
-        style={{ maxWidth: 1160, paddingLeft: 40, paddingRight: 40 }}
+      <style>{`
+        @keyframes marquee {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .marquee-track {
+          animation: marquee 35s linear infinite;
+        }
+        .marquee-track:hover {
+          animation-play-state: paused;
+        }
+      `}</style>
+
+      <motion.p
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        className="text-center"
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: "#7F8491",
+          marginBottom: 32,
+        }}
       >
-        <motion.p
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="text-center"
+        {label}
+      </motion.p>
+
+      {/* Marquee container — overflow hidden, full bleed */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ delay: 0.1 }}
+        style={{ overflow: "hidden", position: "relative" }}
+      >
+        {/* Fade edges */}
+        <div
           style={{
-            fontSize: 14,
-            fontWeight: 500,
-            color: "#7F8491",
-            marginBottom: 32,
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 80,
+            zIndex: 2,
+            background: "linear-gradient(to right, #fff 0%, transparent 100%)",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 80,
+            zIndex: 2,
+            background: "linear-gradient(to left, #fff 0%, transparent 100%)",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Scrolling track */}
+        <div
+          className="marquee-track"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 64,
+            width: "max-content",
           }}
         >
-          {label}
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.1 }}
-          className="flex flex-wrap items-center justify-center"
-          style={{ gap: "16px 40px" }}
-        >
-          {companies.map((company) => (
-            <CompanyLogo
-              key={company.domain}
-              name={company.name}
-              domain={company.domain}
-            />
+          {track.map((name, i) => (
+            <span
+              key={i}
+              className="select-none"
+              style={{
+                color: "rgba(21, 22, 25, 0.22)",
+                fontWeight: 700,
+                fontSize: 15,
+                letterSpacing: "-0.02em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {name}
+            </span>
           ))}
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </section>
   );
 }
