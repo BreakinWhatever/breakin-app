@@ -46,7 +46,7 @@ function Logo({ name, domain }: { name: string; domain: string }) {
       <span
         className="select-none"
         style={{
-          color: "rgba(21, 22, 25, 0.3)",
+          color: "rgba(21, 22, 25, 0.45)",
           fontWeight: 700,
           fontSize: 15,
           letterSpacing: "-0.02em",
@@ -64,9 +64,9 @@ function Logo({ name, domain }: { name: string; domain: string }) {
       src={`https://img.logo.dev/${domain}?token=${token}&size=80`}
       alt={name}
       style={{
-        height: 36,
+        height: 52,
         width: "auto",
-        maxWidth: 140,
+        maxWidth: 200,
         display: "block",
         flexShrink: 0,
       }}
@@ -185,9 +185,8 @@ export default function LogoBar() {
         transition={{ delay: 0.1 }}
         style={{ display: "flex", flexDirection: "column", gap: 12 }}
       >
-        <MarqueeRow companies={row1} direction="left" duration={30} />
-        <MarqueeRow companies={row2} direction="right" duration={25} />
-        <MarqueeRow companies={row3} direction="left" duration={35} />
+        <MarqueeRow companies={[...row1, ...row2]} direction="left" duration={35} />
+        <MarqueeRow companies={[...row3, ...row2]} direction="right" duration={28} />
       </motion.div>
     </section>
   );
