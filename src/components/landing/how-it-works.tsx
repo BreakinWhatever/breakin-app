@@ -159,8 +159,8 @@ export default function HowItWorks() {
                   className="hidden md:block absolute"
                   style={{
                     top: 36,
-                    left: 108,
-                    right: -32,
+                    left: 120,
+                    right: -16,
                     height: 1,
                     backgroundColor: "#E1E2E5",
                     zIndex: 0,
@@ -173,7 +173,7 @@ export default function HowItWorks() {
                   style={{
                     top: 36,
                     left: 108,
-                    width: 155,
+                    width: 195,
                     height: 1,
                     backgroundColor: "#E1E2E5",
                     zIndex: 0,
