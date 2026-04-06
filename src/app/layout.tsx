@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/layout/sidebar";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
@@ -39,10 +38,7 @@ export default function RootLayout({
       <body className="min-h-full flex font-sans">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <TooltipProvider>
-            <Sidebar />
-            <main className="flex-1 bg-background p-8 overflow-auto min-h-screen">
-              {children}
-            </main>
+            {children}
             <Toaster position="top-right" richColors />
           </TooltipProvider>
         </ThemeProvider>

@@ -45,3 +45,6 @@ next-env.d.ts
 *.db
 *.db-journal
 .gstack/
+
+# Local Netlify folder
+.netlify

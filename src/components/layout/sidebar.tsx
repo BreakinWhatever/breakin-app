@@ -42,7 +42,7 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Pipeline", href: "/pipeline", icon: GitBranch },
   { label: "Calendrier", href: "/calendar", icon: Calendar },
   { label: "Contacts", href: "/contacts", icon: Users },
@@ -133,7 +133,7 @@ export default function Sidebar() {
   }
 
   function isActive(href: string) {
-    if (href === "/") return pathname === "/";
+    if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   }
 
