@@ -57,7 +57,7 @@ export default function Navbar() {
           <img
             src="/logo.png"
             alt="BreakIn"
-            style={{ height: 36, width: "auto" }}
+            style={{ height: 56, width: "auto" }}
           />
         </a>
 
