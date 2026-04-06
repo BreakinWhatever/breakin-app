@@ -29,13 +29,13 @@ const companies = [
   { name: "Cinven", domain: "cinven.com" },
 ];
 
-// Duplicate list for seamless infinite loop
 const track = [...companies, ...companies];
 
 function Logo({ name, domain }: { name: string; domain: string }) {
   const [failed, setFailed] = useState(false);
+  const token = process.env.NEXT_PUBLIC_LOGODEV_TOKEN;
 
-  if (failed) {
+  if (failed || !token) {
     return (
       <span
         className="select-none"
@@ -52,17 +52,18 @@ function Logo({ name, domain }: { name: string; domain: string }) {
     );
   }
 
+  const src = `https://img.logo.dev/${domain}?token=${token}&greyscale=true&size=80`;
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`/api/logo?domain=${domain}`}
+      src={src}
       alt={name}
       style={{
         height: 28,
         width: "auto",
         maxWidth: 120,
-        filter: "grayscale(100%)",
-        opacity: 0.4,
+        opacity: 0.5,
         display: "block",
         flexShrink: 0,
       }}
@@ -115,7 +116,6 @@ export default function LogoBar() {
         transition={{ delay: 0.1 }}
         style={{ overflow: "hidden", position: "relative" }}
       >
-        {/* Fade edges */}
         <div
           style={{
             position: "absolute",
@@ -151,7 +151,11 @@ export default function LogoBar() {
           }}
         >
           {track.map((company, i) => (
-            <Logo key={`${company.domain}-${i}`} name={company.name} domain={company.domain} />
+            <Logo
+              key={`${company.domain}-${i}`}
+              name={company.name}
+              domain={company.domain}
+            />
           ))}
         </div>
       </motion.div>
