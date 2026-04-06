@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { SidePanel } from "@/components/shared/side-panel";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +80,18 @@ export function OfferSidePanel({
   onOpenChange,
   onPrev,
   onNext,
-}: OfferSidePanelProps) {
+  onApplied,
+}: OfferSidePanelProps & { onApplied?: (id: string) => void }) {
+  const [applying, setApplying] = useState(false);
+
+  const handleApply = async () => {
+    if (!offer || applying) return;
+    setApplying(true);
+    const res = await fetch(`/api/offers/${offer.id}/apply`, { method: "POST" });
+    if (res.ok) onApplied?.(offer.id);
+    setApplying(false);
+  };
+
   if (!offer) return null;
 
   const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -148,9 +160,20 @@ export function OfferSidePanel({
             Voir detail
           </Button>
         </Link>
-        <Button variant="outline" className="w-full" disabled>
+        <Button
+          variant="default"
+          className="w-full"
+          onClick={handleApply}
+          disabled={applying || offer.status === "applied" || offer.status === "apply_requested"}
+        >
           <Send className="size-4 mr-1.5" />
-          Postuler
+          {offer.status === "applied"
+            ? "Postulé ✓"
+            : offer.status === "apply_requested"
+            ? "En cours..."
+            : applying
+            ? "Lancement..."
+            : "Postuler"}
         </Button>
         {offer.url && (
           <a href={offer.url} target="_blank" rel="noopener noreferrer">

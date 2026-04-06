@@ -80,6 +80,8 @@ export default function OfferDetailPage() {
       .finally(() => setLoading(false));
   }, [params.id]);
 
+  const [applying, setApplying] = useState(false);
+
   const handleStatusUpdate = async (newStatus: string) => {
     if (!offer) return;
     const res = await fetch(`/api/offers/${offer.id}`, {
@@ -91,6 +93,17 @@ export default function OfferDetailPage() {
       const updated = await res.json();
       setOffer(updated);
     }
+  };
+
+  const handleApply = async () => {
+    if (!offer || applying) return;
+    setApplying(true);
+    const res = await fetch(`/api/offers/${offer.id}/apply`, { method: "POST" });
+    if (res.ok) {
+      const updated = await res.json();
+      setOffer(updated);
+    }
+    setApplying(false);
   };
 
   if (loading) {
@@ -284,9 +297,20 @@ export default function OfferDetailPage() {
                   <XCircle className="size-4 mr-1.5" />
                   {offer.status === "ignored" ? "Ignore" : "Ignorer"}
                 </Button>
-                <Button variant="outline" className="w-full" disabled>
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={handleApply}
+                  disabled={applying || offer.status === "applied" || offer.status === "apply_requested"}
+                >
                   <Send className="size-4 mr-1.5" />
-                  Postuler
+                  {offer.status === "applied"
+                    ? "Postulé ✓"
+                    : offer.status === "apply_requested"
+                    ? "En cours..."
+                    : applying
+                    ? "Lancement..."
+                    : "Postuler"}
                 </Button>
               </div>
             </CardContent>
