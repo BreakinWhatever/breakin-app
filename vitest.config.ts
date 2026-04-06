@@ -5,10 +5,7 @@ const alias = { "@": path.resolve(__dirname, "./src") };
 
 export default defineConfig({
   test: {
-    environment: "node",
-    globals: true,
     projects: [
-      // Pure-function tests — no DB setup needed
       {
         test: {
           name: "unit",
@@ -18,7 +15,6 @@ export default defineConfig({
         },
         resolve: { alias },
       },
-      // Integration/DB tests — run prisma push before each test
       {
         test: {
           name: "integration",
@@ -32,5 +28,4 @@ export default defineConfig({
       },
     ],
   },
-  resolve: { alias },
 });

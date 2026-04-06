@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { AtsType } from "@/generated/prisma/enums";
 import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -48,6 +49,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const rawAtsType = body.atsType ?? null;
+    if (rawAtsType !== null) {
+      const validAtsTypes = Object.values(AtsType) as string[];
+      if (!validAtsTypes.includes(rawAtsType)) {
+        return Response.json(
+          { error: `Invalid atsType '${rawAtsType}'. Must be one of: ${validAtsTypes.join(", ")}` },
+          { status: 400 }
+        );
+      }
+    }
+
     const company = await prisma.company.create({
       data: {
         name,
@@ -58,7 +70,7 @@ export async function POST(request: NextRequest) {
         website: body.website ?? null,
         apolloId: body.apolloId ?? null,
         notes: body.notes ?? null,
-        atsType: body.atsType ?? null,
+        atsType: rawAtsType as AtsType | null,
         careerUrl: body.careerUrl ?? null,
         atsConfig: body.atsConfig ?? null,
         active: body.active ?? true,

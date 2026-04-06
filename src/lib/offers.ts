@@ -15,12 +15,12 @@ export function detectContractType(
   if (/\bstage\b|\binternship\b|\bintern\b|off[- ]?cycle/.test(t)) return "Stage";
   if (/\balternance\b|\bapprenti/.test(t)) return "Alternance";
   if (/\bvie\b/.test(t)) return "VIE";
-  if (/\bcdd\b|\btemp\b|\btemporary\b|\bfreelance\b/.test(t)) return "CDD";
+  if (/\bcdd\b|\btemp\b|\btemporary\b|\bcontract\b|\bfreelance\b/.test(t)) return "CDD";
 
   // Fall back to description
   if (/\bstage\b|\binternship\b|\bintern\b|off[- ]?cycle/.test(d)) return "Stage";
   if (/\balternance\b|\bapprenti|\bapprentissage\b/.test(d)) return "Alternance";
-  if (/\bvolontariat international\b|\bvie\b/.test(d)) return "VIE";
+  if (/\bvolontariat international\b/.test(d)) return "VIE";
 
   // Adzuna raw contract_type fallback
   if (raw === "contract") return "CDD";
