@@ -1,6 +1,33 @@
 "use client";
 
+import { useLang } from "@/lib/lang-context";
+
+const enContent = {
+  tagline: "The smarter way to land interviews",
+  navLinks: [
+    { label: "Features", href: "#features" },
+    { label: "How it works", href: "#how-it-works" },
+    { label: "Testimonials", href: "#testimonials" },
+  ],
+  privacy: "Privacy Policy",
+  terms: "Terms of Service",
+};
+
+const frContent = {
+  tagline: "La façon intelligente de décrocher des entretiens",
+  navLinks: [
+    { label: "Fonctionnalités", href: "#features" },
+    { label: "Comment ça marche", href: "#how-it-works" },
+    { label: "Témoignages", href: "#testimonials" },
+  ],
+  privacy: "Politique de confidentialité",
+  terms: "Conditions d'utilisation",
+};
+
 export default function Footer() {
+  const lang = useLang();
+  const t = lang === "fr" ? frContent : enContent;
+
   return (
     <footer style={{ borderTop: "1px solid #E1E2E5" }}>
       <div
@@ -48,7 +75,7 @@ export default function Footer() {
               </span>
             </div>
             <p style={{ fontSize: 14, color: "#7F8491" }}>
-              The smarter way to land interviews
+              {t.tagline}
             </p>
           </div>
 
@@ -74,14 +101,14 @@ export default function Footer() {
                   gap: 8,
                 }}
               >
-                {["Features", "How it works", "Testimonials"].map((link) => (
-                  <li key={link}>
+                {t.navLinks.map((link) => (
+                  <li key={link.href}>
                     <a
-                      href={`#${link.toLowerCase().replace(/ /g, "-")}`}
+                      href={link.href}
                       className="transition-colors hover:text-[#151619]"
                       style={{ fontSize: 14, fontWeight: 400, color: "#363940" }}
                     >
-                      {link}
+                      {link.label}
                     </a>
                   </li>
                 ))}
@@ -135,10 +162,10 @@ export default function Footer() {
           </p>
           <div className="flex" style={{ gap: 16 }}>
             <span style={{ fontSize: 12, color: "#7F8491" }}>
-              Privacy Policy
+              {t.privacy}
             </span>
             <span style={{ fontSize: 12, color: "#7F8491" }}>
-              Terms of Service
+              {t.terms}
             </span>
           </div>
         </div>

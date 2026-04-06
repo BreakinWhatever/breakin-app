@@ -9,32 +9,39 @@ import HowItWorks from "@/components/landing/how-it-works";
 import Testimonials from "@/components/landing/testimonials";
 import CtaSection from "@/components/landing/cta-section";
 import Footer from "@/components/landing/footer";
+import { LangContext, Lang } from "@/lib/lang-context";
 
-export default function LandingClient() {
+interface LandingClientProps {
+  lang?: Lang;
+}
+
+export default function LandingClient({ lang = "en" }: LandingClientProps) {
   return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto"
-      style={{ backgroundColor: "#fff" }}
-    >
-      <style jsx global>{`
-        html {
-          scroll-behavior: smooth;
-        }
-      `}</style>
+    <LangContext.Provider value={lang}>
+      <div
+        className="fixed inset-0 z-50 overflow-y-auto"
+        style={{ backgroundColor: "#fff" }}
+      >
+        <style jsx global>{`
+          html {
+            scroll-behavior: smooth;
+          }
+        `}</style>
 
-      <Navbar />
+        <Navbar />
 
-      <main>
-        <Hero />
-        <LogoBar />
-        <Features />
-        <PipelineSection />
-        <HowItWorks />
-        <Testimonials />
-        <CtaSection />
-      </main>
+        <main>
+          <Hero />
+          <LogoBar />
+          <Features />
+          <PipelineSection />
+          <HowItWorks />
+          <Testimonials />
+          <CtaSection />
+        </main>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </LangContext.Provider>
   );
 }

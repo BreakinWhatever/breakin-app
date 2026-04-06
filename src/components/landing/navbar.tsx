@@ -3,14 +3,31 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
+import { useLang } from "@/lib/lang-context";
 
-const navLinks = [
-  { label: "Features", href: "#features" },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Testimonials", href: "#testimonials" },
-];
+const enContent = {
+  navLinks: [
+    { label: "Features", href: "#features" },
+    { label: "How it works", href: "#how-it-works" },
+    { label: "Testimonials", href: "#testimonials" },
+  ],
+  cta: "Get early access",
+};
+
+const frContent = {
+  navLinks: [
+    { label: "Fonctionnalités", href: "#features" },
+    { label: "Comment ça marche", href: "#how-it-works" },
+    { label: "Témoignages", href: "#testimonials" },
+  ],
+  cta: "Rejoindre la waitlist",
+};
 
 export default function Navbar() {
+  const lang = useLang();
+  const t = lang === "fr" ? frContent : enContent;
+  const navLinks = t.navLinks;
+
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -63,8 +80,37 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Desktop CTA — OUTLINED style */}
-        <div className="hidden md:flex items-center">
+        {/* Desktop right side: lang switcher + CTA */}
+        <div className="hidden md:flex items-center" style={{ gap: 16 }}>
+          {/* Language switcher */}
+          <div
+            className="flex items-center"
+            style={{ gap: 4, fontSize: 12, color: "#7F8491" }}
+          >
+            <a
+              href="/"
+              style={{
+                color: lang === "en" ? "#151619" : "#7F8491",
+                fontWeight: lang === "en" ? 700 : 400,
+                textDecoration: "none",
+              }}
+            >
+              EN
+            </a>
+            <span style={{ color: "#7F8491" }}>·</span>
+            <a
+              href="/fr"
+              style={{
+                color: lang === "fr" ? "#151619" : "#7F8491",
+                fontWeight: lang === "fr" ? 700 : 400,
+                textDecoration: "none",
+              }}
+            >
+              FR
+            </a>
+          </div>
+
+          {/* CTA */}
           <a
             href="#cta"
             className="transition-colors hover:border-[#151619]"
@@ -82,7 +128,7 @@ export default function Navbar() {
               justifyContent: "center",
             }}
           >
-            Get early access
+            {t.cta}
           </a>
         </div>
 
@@ -123,6 +169,33 @@ export default function Navbar() {
                   {link.label}
                 </a>
               ))}
+              {/* Mobile lang switcher */}
+              <div
+                className="flex items-center"
+                style={{ gap: 4, fontSize: 12, color: "#7F8491", padding: "4px 0" }}
+              >
+                <a
+                  href="/"
+                  style={{
+                    color: lang === "en" ? "#151619" : "#7F8491",
+                    fontWeight: lang === "en" ? 700 : 400,
+                    textDecoration: "none",
+                  }}
+                >
+                  EN
+                </a>
+                <span style={{ color: "#7F8491" }}>·</span>
+                <a
+                  href="/fr"
+                  style={{
+                    color: lang === "fr" ? "#151619" : "#7F8491",
+                    fontWeight: lang === "fr" ? 700 : 400,
+                    textDecoration: "none",
+                  }}
+                >
+                  FR
+                </a>
+              </div>
               <a
                 href="#cta"
                 onClick={() => setMobileOpen(false)}
@@ -142,7 +215,7 @@ export default function Navbar() {
                   marginTop: 8,
                 }}
               >
-                Get early access
+                {t.cta}
               </a>
             </div>
           </motion.div>

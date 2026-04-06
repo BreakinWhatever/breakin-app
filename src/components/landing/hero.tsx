@@ -3,8 +3,28 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import WaitlistForm from "@/components/landing/waitlist-form";
+import { useLang } from "@/lib/lang-context";
+
+const enContent = {
+  badge: "Your unfair advantage in finance recruiting",
+  h1Line1: "The smarter way to",
+  h1Highlight: "✨ land interviews",
+  subtitle:
+    "Say goodbye to mass applications and job boards. Use BreakIn to find decision-makers, write the perfect cold email, and track every opportunity until you get the interview.",
+};
+
+const frContent = {
+  badge: "Votre avantage décisif en finance",
+  h1Line1: "La façon intelligente de",
+  h1Highlight: "✨ décrocher des entretiens",
+  subtitle:
+    "Fini les candidatures en masse et les job boards. Avec BreakIn, trouvez les bons contacts, rédigez le cold email parfait, et trackez chaque opportunité jusqu'à l'entretien.",
+};
 
 export default function Hero() {
+  const lang = useLang();
+  const t = lang === "fr" ? frContent : enContent;
+
   return (
     <section style={{ marginBottom: 160 }}>
       <div
@@ -34,7 +54,7 @@ export default function Hero() {
                 backgroundColor: "transparent",
               }}
             >
-              Your unfair advantage in finance recruiting
+              {t.badge}
               <ArrowRight size={14} />
             </a>
           </motion.div>
@@ -53,7 +73,7 @@ export default function Hero() {
               marginBottom: 40,
             }}
           >
-            The smarter way to
+            {t.h1Line1}
             <br />
             <span
               style={{
@@ -68,7 +88,7 @@ export default function Hero() {
                 transform: "rotate(-2deg)",
               }}
             >
-              ✨ land interviews
+              {t.h1Highlight}
             </span>
           </motion.h1>
 
@@ -87,9 +107,7 @@ export default function Hero() {
               marginBottom: 16,
             }}
           >
-            Say goodbye to mass applications and job boards. Use BreakIn to find
-            decision-makers, write the perfect cold email, and track every
-            opportunity until you get the interview.
+            {t.subtitle}
           </motion.p>
 
           {/* CTA */}

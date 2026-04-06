@@ -1,32 +1,104 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useLang } from "@/lib/lang-context";
 
-const steps = [
-  {
-    number: "01",
-    title: "Source contacts",
-    description:
-      "Search Apollo.io for decision-makers at your target firms. Filter by role, city, and sector. Import them to your pipeline in one click.",
-    emoji: "🔍",
-  },
-  {
-    number: "02",
-    title: "AI writes your emails",
-    description:
-      "BreakIn's AI drafts personalized cold emails for each contact. Review, tweak if needed, and approve. French or English, always professional.",
-    emoji: "✍️",
-  },
-  {
-    number: "03",
-    title: "Track & follow up",
-    description:
-      "Monitor opens and replies. When someone doesn't respond, the AI drafts a smart follow-up. Keep going until you land the interview.",
-    emoji: "📈",
-  },
-];
+const enContent = {
+  heading: "What is BreakIn?",
+  subheading:
+    "Cold emailing is the most effective way to land interviews in finance.",
+  subheadingHighlight: "BreakIn automates the entire process.",
+  steps: [
+    {
+      number: "01",
+      title: "Source contacts",
+      description:
+        "Search Apollo.io for decision-makers at your target firms. Filter by role, city, and sector. Import them to your pipeline in one click.",
+      emoji: "🔍",
+    },
+    {
+      number: "02",
+      title: "AI writes your emails",
+      description:
+        "BreakIn's AI drafts personalized cold emails for each contact. Review, tweak if needed, and approve. French or English, always professional.",
+      emoji: "✍️",
+    },
+    {
+      number: "03",
+      title: "Track & follow up",
+      description:
+        "Monitor opens and replies. When someone doesn't respond, the AI drafts a smart follow-up. Keep going until you land the interview.",
+      emoji: "📈",
+    },
+  ],
+  withoutLabel: "Without BreakIn",
+  withLabel: "With BreakIn",
+  withoutItems: [
+    "Hours spent on LinkedIn searching for contacts",
+    "Copy-pasting the same generic email template",
+    "Forgetting to follow up",
+    "No idea who opened your email",
+    "Spreadsheet chaos",
+  ],
+  withItems: [
+    "Find contacts in seconds with Apollo.io",
+    "AI writes personalized emails for each person",
+    "Automated follow-up sequences",
+    "Full pipeline visibility: who replied, who didn't",
+    "One dashboard to rule them all",
+  ],
+};
+
+const frContent = {
+  heading: "C'est quoi BreakIn ?",
+  subheading:
+    "Le cold emailing est la méthode la plus efficace pour décrocher des entretiens en finance.",
+  subheadingHighlight: "BreakIn automatise tout le process.",
+  steps: [
+    {
+      number: "01",
+      title: "Sourcez vos contacts",
+      description:
+        "Cherchez sur Apollo.io les décideurs de vos boîtes cibles. Filtrez par rôle, ville et secteur. Importez-les dans votre pipeline en un clic.",
+      emoji: "🔍",
+    },
+    {
+      number: "02",
+      title: "L'IA rédige vos emails",
+      description:
+        "BreakIn rédige des cold emails personnalisés pour chaque contact. Relisez, ajustez si besoin, et validez. En français ou en anglais, toujours professionnel.",
+      emoji: "✍️",
+    },
+    {
+      number: "03",
+      title: "Trackez & relancez",
+      description:
+        "Suivez les ouvertures et les réponses. Quand quelqu'un ne répond pas, l'IA rédige un follow-up intelligent. Continuez jusqu'à décrocher l'entretien.",
+      emoji: "📈",
+    },
+  ],
+  withoutLabel: "Sans BreakIn",
+  withLabel: "Avec BreakIn",
+  withoutItems: [
+    "Des heures sur LinkedIn à chercher des contacts",
+    "Copier-coller le même template générique",
+    "Oublier de relancer",
+    "Aucune idée de qui a ouvert votre email",
+    "Chaos de spreadsheets",
+  ],
+  withItems: [
+    "Trouvez des contacts en quelques secondes avec Apollo.io",
+    "L'IA rédige des emails personnalisés pour chaque contact",
+    "Séquences de follow-up automatisées",
+    "Visibilité totale sur le pipeline : qui a répondu, qui n'a pas répondu",
+    "Un seul dashboard pour tout gérer",
+  ],
+};
 
 export default function HowItWorks() {
+  const lang = useLang();
+  const t = lang === "fr" ? frContent : enContent;
+
   return (
     <section id="how-it-works" style={{ marginBottom: 160 }}>
       <div
@@ -51,7 +123,7 @@ export default function HowItWorks() {
               marginBottom: 16,
             }}
           >
-            What is BreakIn?
+            {t.heading}
           </h2>
           <p
             className="mx-auto"
@@ -63,17 +135,16 @@ export default function HowItWorks() {
               maxWidth: 640,
             }}
           >
-            Cold emailing is the most effective way to land interviews in
-            finance.{" "}
+            {t.subheading}{" "}
             <span style={{ color: "#151619", fontWeight: 500 }}>
-              BreakIn automates the entire process.
+              {t.subheadingHighlight}
             </span>
           </p>
         </motion.div>
 
         {/* Steps */}
         <div className="grid md:grid-cols-3" style={{ gap: 32 }}>
-          {steps.map((step, i) => (
+          {t.steps.map((step, i) => (
             <motion.div
               key={step.number}
               initial={{ opacity: 0, y: 30 }}
@@ -83,7 +154,7 @@ export default function HowItWorks() {
               className="relative"
             >
               {/* Connector line */}
-              {i < steps.length - 1 && (
+              {i < t.steps.length - 1 && (
                 <div
                   className="hidden md:block absolute"
                   style={{
@@ -167,18 +238,12 @@ export default function HowItWorks() {
                 marginBottom: 16,
               }}
             >
-              Without BreakIn
+              {t.withoutLabel}
             </p>
             <ul
               style={{ display: "flex", flexDirection: "column", gap: 12 }}
             >
-              {[
-                "Hours spent on LinkedIn searching for contacts",
-                "Copy-pasting the same generic email template",
-                "Forgetting to follow up",
-                "No idea who opened your email",
-                "Spreadsheet chaos",
-              ].map((item) => (
+              {t.withoutItems.map((item) => (
                 <li
                   key={item}
                   className="flex items-start"
@@ -216,18 +281,12 @@ export default function HowItWorks() {
                 marginBottom: 16,
               }}
             >
-              With BreakIn
+              {t.withLabel}
             </p>
             <ul
               style={{ display: "flex", flexDirection: "column", gap: 12 }}
             >
-              {[
-                "Find contacts in seconds with Apollo.io",
-                "AI writes personalized emails for each person",
-                "Automated follow-up sequences",
-                "Full pipeline visibility: who replied, who didn't",
-                "One dashboard to rule them all",
-              ].map((item) => (
+              {t.withItems.map((item) => (
                 <li
                   key={item}
                   className="flex items-start"

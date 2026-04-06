@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLang } from "@/lib/lang-context";
 
 type TabId = "pipeline" | "emails";
 
@@ -13,7 +14,7 @@ interface TabData {
   description: string;
 }
 
-const tabsData: TabData[] = [
+const enTabsData: TabData[] = [
   {
     id: "pipeline",
     emoji: "👀",
@@ -29,6 +30,25 @@ const tabsData: TabData[] = [
     title: "Let AI ✉️ write your outreach",
     description:
       "Stop spending hours crafting emails. BreakIn generates personalized cold emails in French or English, tailored to each contact.",
+  },
+];
+
+const frTabsData: TabData[] = [
+  {
+    id: "pipeline",
+    emoji: "👀",
+    label: "Pipeline",
+    title: "Gardez 👀 un œil sur chaque opportunité",
+    description:
+      "Toute votre recherche d'emploi en un seul endroit. Voyez qui vous avez contacté, qui a répondu, et ce qui vient ensuite — du premier email à l'offre signée.",
+  },
+  {
+    id: "emails",
+    emoji: "✉️",
+    label: "Emails",
+    title: "Laissez l'IA ✉️ rédiger votre outreach",
+    description:
+      "Arrêtez de passer des heures à écrire des emails. BreakIn génère des cold emails personnalisés en français ou en anglais, adaptés à chaque contact.",
   },
 ];
 
@@ -326,6 +346,9 @@ function EmailsMockup() {
 }
 
 export default function PipelineSection() {
+  const lang = useLang();
+  const tabsData = lang === "fr" ? frTabsData : enTabsData;
+
   const [activeTab, setActiveTab] = useState<TabId>("pipeline");
   const active = tabsData.find((t) => t.id === activeTab)!;
 

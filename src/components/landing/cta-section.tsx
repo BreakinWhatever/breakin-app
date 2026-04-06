@@ -2,8 +2,24 @@
 
 import { motion } from "framer-motion";
 import WaitlistForm from "@/components/landing/waitlist-form";
+import { useLang } from "@/lib/lang-context";
+
+const enContent = {
+  heading: "Land 🤩 interviews in 📖 finance with a 🙈 simple and ⚡️ powerful tool",
+  subtitle:
+    "Join the finance professionals who stopped mass-applying and started getting responses.",
+};
+
+const frContent = {
+  heading: "Décroche 🤩 des entretiens en 📖 finance avec un outil 🙈 simple et ⚡️ puissant",
+  subtitle:
+    "Rejoins les pros de la finance qui ont arrêté de postuler en masse et qui décrochent enfin des entretiens.",
+};
 
 export default function CtaSection() {
+  const lang = useLang();
+  const t = lang === "fr" ? frContent : enContent;
+
   return (
     <section id="cta" style={{ paddingBottom: 80 }}>
       <div
@@ -27,8 +43,7 @@ export default function CtaSection() {
               marginBottom: 24,
             }}
           >
-            Land 🤩 interviews in 📖 finance with a 🙈 simple and ⚡️ powerful
-            tool
+            {t.heading}
           </h2>
           <p
             className="mx-auto"
@@ -40,8 +55,7 @@ export default function CtaSection() {
               maxWidth: 560,
             }}
           >
-            Join the finance professionals who stopped mass-applying and started
-            getting responses.
+            {t.subtitle}
           </p>
 
           <div

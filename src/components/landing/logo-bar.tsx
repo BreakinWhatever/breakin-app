@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useLang } from "@/lib/lang-context";
 
 const companies = [
   { name: "Goldman Sachs", domain: "goldmansachs.com" },
@@ -67,6 +68,12 @@ function CompanyLogo({ name, domain }: { name: string; domain: string }) {
 }
 
 export default function LogoBar() {
+  const lang = useLang();
+  const label =
+    lang === "fr"
+      ? "Les meilleures boîtes de finance, dans votre pipeline"
+      : "Targeting the most prestigious firms worldwide";
+
   return (
     <section style={{ marginBottom: 160 }}>
       <div
@@ -85,7 +92,7 @@ export default function LogoBar() {
             marginBottom: 32,
           }}
         >
-          Targeting the most prestigious firms worldwide
+          {label}
         </motion.p>
 
         <motion.div
