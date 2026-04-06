@@ -7,6 +7,16 @@ datasource db {
   provider = "postgresql"
 }
 
+enum AtsType {
+  workday
+  greenhouse
+  lever
+  smartrecruiters
+  workable
+  ashby
+  custom
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -19,7 +29,7 @@ model Company {
   notes     String?
 
   // Scraper registry fields
-  atsType       String?   // workday | greenhouse | lever | smartrecruiters | workable | ashby | custom
+  atsType       AtsType?
   careerUrl     String?
   atsConfig     Json?
   lastScrapedAt DateTime?
@@ -31,6 +41,8 @@ model Company {
   contacts Contact[]
   events   Event[]
   offers   JobOffer[]
+
+  @@index([active])
 }
 
 model Contact {
