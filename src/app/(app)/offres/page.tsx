@@ -142,6 +142,12 @@ export default function OffresPage() {
     setActiveFilters({ city: "", contractType: "", source: "", status: "" });
   };
 
+  // Update offer status locally (instant UI update)
+  const updateOfferStatus = (id: string, status: string) => {
+    setOffers((prev) => prev.map((o) => o.id === id ? { ...o, status } : o));
+    setSelectedOffer((prev) => prev?.id === id ? { ...prev, status } : prev);
+  };
+
   // Bulk apply
   async function handleBulkApply(selected: OfferRow[]) {
     const queue: ApplyProgress[] = selected.map((o) => ({
@@ -160,31 +166,15 @@ export default function OffresPage() {
       );
 
       try {
-        const res = await fetch("/api/applications", {
+        const res = await fetch(`/api/offers/${queue[i].offerId}/apply`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            offerId: queue[i].offerId,
-            companyName: queue[i].company,
-            role: queue[i].role,
-            source: "scraping",
-            status: "applied",
-            notes: "Candidature lancee depuis /offres",
-          }),
         });
-
         if (!res.ok) throw new Error("Failed");
 
-        // Update offer status
-        await fetch(`/api/offers/${queue[i].offerId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "applied" }),
-        });
-
+        updateOfferStatus(queue[i].offerId, "apply_requested");
         setApplyQueue((prev) =>
           prev.map((item, idx) =>
-            idx === i ? { ...item, status: "done", message: "Candidature creee" } : item
+            idx === i ? { ...item, status: "done", message: "Lancee" } : item
           )
         );
       } catch {
@@ -196,8 +186,7 @@ export default function OffresPage() {
       }
     }
 
-    toast.success(`${queue.length} candidature(s) creee(s)`);
-    fetchOffers();
+    toast.success(`${queue.length} candidature(s) lancee(s)`);
   }
 
   // Bulk ignore
@@ -303,6 +292,7 @@ export default function OffresPage() {
         onOpenChange={setPanelOpen}
         onPrev={handlePrev}
         onNext={handleNext}
+        onApplied={(id) => updateOfferStatus(id, "apply_requested")}
       />
     </div>
   );
