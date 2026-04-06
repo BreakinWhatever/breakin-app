@@ -4,6 +4,7 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
 import { ClipboardList } from "lucide-react";
+import { CompanyLogo } from "@/components/shared/company-logo";
 
 export interface ApplicationRow {
   id: string;
@@ -124,9 +125,15 @@ export const applicationColumns: ColumnDef<ApplicationRow, unknown>[] = [
     accessorKey: "companyName",
     header: "Entreprise",
     enableSorting: true,
-    cell: ({ getValue }) => (
-      <span className="text-sm">{getValue() as string}</span>
-    ),
+    cell: ({ getValue }) => {
+      const company = getValue() as string;
+      return (
+        <div className="flex items-center gap-2">
+          <CompanyLogo company={company} size="sm" />
+          <span className="text-sm">{company}</span>
+        </div>
+      );
+    },
   },
   {
     accessorKey: "source",

@@ -17,9 +17,6 @@ export async function GET(
             emails: true,
           },
         },
-        inboundEmails: {
-          orderBy: { receivedAt: "desc" },
-        },
       },
     });
 

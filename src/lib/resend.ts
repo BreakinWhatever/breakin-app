@@ -60,40 +60,6 @@ export async function sendEmailViaResend(options: ResendSendOptions) {
   return response.json();
 }
 
-export async function forwardEmail({
-  to,
-  subject,
-  body,
-  language,
-}: {
-  to: string;
-  subject: string;
-  body: string;
-  language?: string;
-}) {
-  return sendEmailViaResend({ to, subject, body, language });
-}
-
-export async function fetchResendEmail(emailId: string) {
-  const apiKey = await getResendApiKey();
-  if (!apiKey) {
-    throw new Error("Resend API key not configured.");
-  }
-
-  const response = await fetch(`${RESEND_BASE_URL}/emails/${emailId}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Resend fetch error ${response.status}: ${text}`);
-  }
-
-  return response.json();
-}
 
 // ---------- Recap Email ----------
 

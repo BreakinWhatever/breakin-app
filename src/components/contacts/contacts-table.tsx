@@ -63,37 +63,21 @@ function extractDomain(website: string): string {
   }
 }
 
+import { CompanyLogo as SharedCompanyLogo } from "@/components/shared/company-logo";
+
 function CompanyLogo({
   companyName,
   companyWebsite,
-  size = 20,
 }: {
   companyName: string;
   companyWebsite?: string | null;
   size?: number;
 }) {
-  const [imgError, setImgError] = useState(false);
-  const domain = companyWebsite ? extractDomain(companyWebsite) : null;
-
-  if (!domain || imgError) {
-    return (
-      <span
-        className="inline-flex items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-medium shrink-0"
-        style={{ width: size, height: size, fontSize: size * 0.45 }}
-      >
-        {companyName.charAt(0).toUpperCase()}
-      </span>
-    );
-  }
-
   return (
-    <img
-      src={`https://logo.clearbit.com/${domain}`}
-      alt={companyName}
-      width={size}
-      height={size}
-      className="rounded-full shrink-0 bg-muted"
-      onError={() => setImgError(true)}
+    <SharedCompanyLogo
+      company={companyName}
+      website={companyWebsite}
+      size="sm"
     />
   );
 }

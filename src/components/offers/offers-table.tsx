@@ -4,6 +4,7 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
 import { Briefcase } from "lucide-react";
+import { CompanyLogo } from "@/components/shared/company-logo";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -77,9 +78,15 @@ export const offerColumns: ColumnDef<OfferRow, unknown>[] = [
     accessorKey: "company",
     header: "Entreprise",
     enableSorting: true,
-    cell: ({ getValue }) => (
-      <span className="text-sm">{getValue() as string}</span>
-    ),
+    cell: ({ getValue }) => {
+      const company = getValue() as string;
+      return (
+        <div className="flex items-center gap-2">
+          <CompanyLogo company={company} size="sm" />
+          <span className="text-sm">{company}</span>
+        </div>
+      );
+    },
   },
   {
     accessorKey: "city",
@@ -143,12 +150,16 @@ interface OffersTableProps {
   offers: OfferRow[];
   loading: boolean;
   onRowClick: (offer: OfferRow) => void;
+  enableSelection?: boolean;
+  bulkActions?: import("@/components/shared/data-table").BulkAction<OfferRow>[];
 }
 
 export default function OffersTable({
   offers,
   loading,
   onRowClick,
+  enableSelection = false,
+  bulkActions = [],
 }: OffersTableProps) {
   return (
     <DataTable
@@ -156,6 +167,10 @@ export default function OffersTable({
       data={offers}
       loading={loading}
       onRowClick={onRowClick}
+      enableSelection={enableSelection}
+      bulkActions={bulkActions}
+      enableColumnVisibility
+      tableId="offers"
       emptyState={{
         icon: Briefcase,
         title: "Aucune offre",

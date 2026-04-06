@@ -18,7 +18,6 @@ export type TimelineEventType =
   | "email_sent"
   | "email_opened"
   | "reply_received"
-  | "reply_content"
   | "event_created"
   | "note";
 
@@ -47,11 +46,6 @@ const eventConfig: Record<
     icon: MessageSquare,
     color:
       "text-violet-600 bg-violet-100 dark:text-violet-400 dark:bg-violet-900/40",
-  },
-  reply_content: {
-    icon: MessageSquare,
-    color:
-      "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/40",
   },
   event_created: {
     icon: CalendarPlus,

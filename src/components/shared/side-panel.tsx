@@ -17,7 +17,7 @@ interface SidePanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   badge?: {
     label: string;
     variant?: "default" | "secondary" | "destructive" | "outline";

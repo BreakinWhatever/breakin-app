@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { FileText, Upload, Trash2 } from "lucide-react";
+import { FileText, Upload, Trash2, Mail, Phone, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import {
@@ -23,6 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -45,6 +47,16 @@ export default function SettingsPage() {
   const [cvUploading, setCvUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // CV data from settings
+  const [cvData, setCvData] = useState<{
+    fr?: { firstName: string; lastName: string; email: string; phone: string; location: string; cvFile: string };
+    en?: { firstName: string; lastName: string; email: string; phone: string; location: string; cvFile: string };
+    education?: { school: string; degree: string; dates: string; location: string }[];
+    experience?: { company: string; role: string; team?: string; aum?: string; dates: string; location: string }[];
+    skills?: string[];
+    languages?: string[];
+  } | null>(null);
+
   useEffect(() => {
     // Fetch settings
     fetch("/api/settings")
@@ -62,6 +74,19 @@ export default function SettingsPage() {
       .then((data) => {
         if (data && !data.error) {
           setCvInfo(data);
+        }
+      });
+
+    // Fetch CV data from settings
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.cvData) {
+          try {
+            setCvData(JSON.parse(data.cvData));
+          } catch {
+            // ignore parse errors
+          }
         }
       });
   }, []);
@@ -151,53 +176,138 @@ export default function SettingsPage() {
         description="Configurez le comportement de la plateforme"
       />
 
-      {/* CV Upload Section */}
+      {/* CV Profiles Section */}
       <Card className="max-w-2xl">
         <CardHeader>
-          <CardTitle>Curriculum Vitae</CardTitle>
+          <CardTitle>Profils Candidature</CardTitle>
           <CardDescription>
-            Fichier PDF uniquement. Ce CV sera utilise pour vos candidatures.
+            Deux profils : FR pour les candidatures en France, EN pour les candidatures internationales.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {cvInfo.exists && cvInfo.filename && (
-            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-              <FileText className="size-5 text-primary shrink-0" />
-              <a
-                href={cvInfo.path}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline font-medium truncate"
-              >
-                {cvInfo.filename}
-              </a>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={handleCvDelete}
-                disabled={cvUploading}
-                className="ml-auto shrink-0"
-              >
-                <Trash2 className="size-4 text-destructive" />
-              </Button>
+        <CardContent>
+          {cvData ? (
+            <Tabs defaultValue="fr">
+              <TabsList className="mb-4">
+                <TabsTrigger value="fr">
+                  Candidatures (FR)
+                </TabsTrigger>
+                <TabsTrigger value="en">
+                  Applications (EN)
+                </TabsTrigger>
+              </TabsList>
+
+              {(["fr", "en"] as const).map((lang) => {
+                const profile = cvData[lang];
+                if (!profile) return null;
+                return (
+                  <TabsContent key={lang} value={lang} className="space-y-4">
+                    <div className="rounded-lg border p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-lg">
+                          {profile.firstName} {profile.lastName}
+                        </h3>
+                        <Badge variant={lang === "fr" ? "default" : "secondary"}>
+                          {lang === "fr" ? "Francais" : "English"}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Mail className="size-3.5" />
+                          <span>{profile.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Phone className="size-3.5" />
+                          <span>{profile.phone}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Globe className="size-3.5" />
+                          <span>{profile.location}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                        <FileText className="size-5 text-primary shrink-0" />
+                        <span className="text-sm font-medium">{profile.cvFile}</span>
+                      </div>
+                    </div>
+
+                    {/* Education */}
+                    {cvData.education && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                          Formation
+                        </h4>
+                        {cvData.education.map((edu, i) => (
+                          <div key={i} className="text-sm space-y-0.5">
+                            <div className="font-medium">{edu.school}</div>
+                            <div className="text-muted-foreground">{edu.degree}</div>
+                            <div className="text-xs text-muted-foreground">{edu.dates} — {edu.location}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Experience */}
+                    {cvData.experience && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                          Experience
+                        </h4>
+                        {cvData.experience.map((exp, i) => (
+                          <div key={i} className="text-sm space-y-0.5">
+                            <div className="font-medium">{exp.company}</div>
+                            <div className="text-muted-foreground">{exp.role}</div>
+                            <div className="text-xs text-muted-foreground">{exp.dates} — {exp.location}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Skills */}
+                    {cvData.skills && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                          Competences
+                        </h4>
+                        <div className="flex flex-wrap gap-1.5">
+                          {cvData.skills.map((skill) => (
+                            <Badge key={skill} variant="outline" className="text-xs">
+                              {skill}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
+          ) : (
+            <div className="text-sm text-muted-foreground text-center py-6">
+              Aucun CV configure. Uploadez vos CVs pour commencer.
             </div>
           )}
 
-          <div className="flex items-center gap-3">
-            <Input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf"
-              className="flex-1"
-            />
-            <Button
-              onClick={handleCvUpload}
-              disabled={cvUploading}
-              variant="outline"
-            >
-              <Upload className="size-4 mr-1" />
-              {cvUploading ? "Upload..." : "Uploader"}
-            </Button>
+          {/* Upload */}
+          <div className="mt-4 pt-4 border-t space-y-2">
+            <Label>Mettre a jour un CV</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf"
+                className="flex-1"
+              />
+              <Button
+                onClick={handleCvUpload}
+                disabled={cvUploading}
+                variant="outline"
+              >
+                <Upload className="size-4 mr-1" />
+                {cvUploading ? "Upload..." : "Uploader"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

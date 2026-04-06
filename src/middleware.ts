@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Routes that don't require authentication
 const PUBLIC_PATHS = [
-  "/api/webhooks/",        // Resend webhooks use their own signature verification
   "/api/auth/token",       // Token management endpoint (protected by admin secret)
   "/api/calendar/feed",    // iCal feed is public (uses its own secret in URL)
 ];

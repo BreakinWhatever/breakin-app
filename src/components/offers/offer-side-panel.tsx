@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Send,
 } from "lucide-react";
+import { CompanyLogo } from "@/components/shared/company-logo";
 import type { OfferRow } from "./offers-table";
 
 // --- Score display ---
@@ -94,7 +95,12 @@ export function OfferSidePanel({
       open={open}
       onOpenChange={onOpenChange}
       title={offer.title}
-      subtitle={offer.company}
+      subtitle={
+        <div className="flex items-center gap-2">
+          <CompanyLogo company={offer.company} size="sm" />
+          <span>{offer.company}</span>
+        </div>
+      }
       badge={{ label: sConfig.label, variant: sConfig.variant }}
       onPrev={onPrev}
       onNext={onNext}
