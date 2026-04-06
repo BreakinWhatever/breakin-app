@@ -272,3 +272,9 @@ model Recap {
   sentVia   String   @default("[]")
   createdAt DateTime @default(now())
 }
+
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
