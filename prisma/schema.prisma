@@ -17,6 +17,14 @@ model Company {
   website   String?
   apolloId  String?  @unique
   notes     String?
+
+  // Scraper registry fields
+  atsType       String?   // workday | greenhouse | lever | smartrecruiters | workable | ashby | custom
+  careerUrl     String?
+  atsConfig     Json?
+  lastScrapedAt DateTime?
+  active        Boolean   @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
