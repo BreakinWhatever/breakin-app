@@ -69,6 +69,8 @@ function Logo({ name, domain }: { name: string; domain: string }) {
         maxWidth: 200,
         display: "block",
         flexShrink: 0,
+        filter: "grayscale(40%)",
+        opacity: 0.75,
       }}
       onError={() => setFailed(true)}
     />
