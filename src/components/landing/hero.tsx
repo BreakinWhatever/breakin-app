@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import WaitlistForm from "@/components/landing/waitlist-form";
 
 export default function Hero() {
   return (
@@ -99,21 +100,7 @@ export default function Hero() {
             className="flex justify-center"
             style={{ marginTop: 40 }}
           >
-            <a
-              href="#cta"
-              className="inline-flex items-center justify-center transition-colors hover:bg-[#151619]"
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                backgroundColor: "#25272D",
-                color: "#F3F3F5",
-                padding: "0 16px",
-                borderRadius: 8,
-                height: 50,
-              }}
-            >
-              Get early access
-            </a>
+            <WaitlistForm />
           </motion.div>
 
           {/* Browser mockup */}
