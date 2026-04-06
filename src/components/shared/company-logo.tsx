@@ -111,7 +111,7 @@ export function CompanyLogo({
 
   return (
     <img
-      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=${px * 2}`}
+      src={`https://img.logo.dev/${domain}?token=pk_X-1ZO13GSgeOoUrIuJ6GMQ&size=${px * 2}&format=png`}
       alt={company}
       width={px}
       height={px}

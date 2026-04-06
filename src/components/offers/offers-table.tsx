@@ -117,14 +117,18 @@ export const offerColumns: ColumnDef<OfferRow, unknown>[] = [
   {
     accessorFn: (row) => row.postedAt || row.createdAt,
     id: "date",
-    header: "Date",
+    header: "Publiee le",
     enableSorting: true,
     cell: ({ getValue }) => {
       const dateStr = getValue() as string;
+      const date = new Date(dateStr);
+      const relative = formatDistanceToNow(date, { addSuffix: true, locale: fr });
+      const absolute = date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
       return (
-        <span className="text-sm text-muted-foreground">
-          {formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: fr })}
-        </span>
+        <div className="text-sm text-muted-foreground">
+          <span>{absolute}</span>
+          <span className="block text-xs">{relative}</span>
+        </div>
       );
     },
   },
