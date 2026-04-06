@@ -115,20 +115,33 @@ export const offerColumns: ColumnDef<OfferRow, unknown>[] = [
     ),
   },
   {
-    accessorFn: (row) => row.postedAt || row.createdAt,
-    id: "date",
-    header: "Publiee le",
+    accessorKey: "postedAt",
+    header: "Publiee",
     enableSorting: true,
     cell: ({ getValue }) => {
-      const dateStr = getValue() as string;
+      const dateStr = getValue() as string | null;
+      if (!dateStr) return <span className="text-xs text-muted-foreground">—</span>;
       const date = new Date(dateStr);
-      const relative = formatDistanceToNow(date, { addSuffix: true, locale: fr });
       const absolute = date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+      const relative = formatDistanceToNow(date, { addSuffix: true, locale: fr });
       return (
         <div className="text-sm text-muted-foreground">
           <span>{absolute}</span>
           <span className="block text-xs">{relative}</span>
         </div>
+      );
+    },
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Sourcee",
+    enableSorting: true,
+    cell: ({ getValue }) => {
+      const date = new Date(getValue() as string);
+      return (
+        <span className="text-xs text-muted-foreground">
+          {date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+        </span>
       );
     },
   },

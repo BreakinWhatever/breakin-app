@@ -40,6 +40,14 @@ export async function PUT(
     if (body.matchAnalysis !== undefined) data.matchAnalysis = body.matchAnalysis;
     if (body.companyId !== undefined) data.companyId = body.companyId;
     if (body.contractType !== undefined) data.contractType = body.contractType;
+    if (body.postedAt !== undefined) data.postedAt = body.postedAt ? new Date(body.postedAt) : null;
+    if (body.url !== undefined) data.url = body.url;
+    if (body.title !== undefined) data.title = body.title;
+    if (body.company !== undefined) data.company = body.company;
+    if (body.city !== undefined) data.city = body.city;
+    if (body.country !== undefined) data.country = body.country;
+    if (body.salary !== undefined) data.salary = body.salary;
+    if (body.description !== undefined) data.description = body.description;
 
     const offer = await prisma.jobOffer.update({
       where: { id },

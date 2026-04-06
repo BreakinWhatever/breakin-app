@@ -96,10 +96,10 @@ export function OfferSidePanel({
       onOpenChange={onOpenChange}
       title={offer.title}
       subtitle={
-        <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-2">
           <CompanyLogo company={offer.company} size="sm" />
           <span>{offer.company}</span>
-        </div>
+        </span>
       }
       badge={{ label: sConfig.label, variant: sConfig.variant }}
       onPrev={onPrev}

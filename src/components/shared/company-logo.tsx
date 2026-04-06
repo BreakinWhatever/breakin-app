@@ -24,6 +24,8 @@ function domainFromCompany(company: string): string {
     "bpce": "groupebpce.com",
     "lazard": "lazard.com",
     "rothschild": "rothschildandco.com",
+    "rothschild & co": "rothschildandco.com",
+    "rothschild and co": "rothschildandco.com",
     "morgan stanley": "morganstanley.com",
     "goldman sachs": "goldmansachs.com",
     "jp morgan": "jpmorgan.com",
@@ -59,14 +61,37 @@ function domainFromCompany(company: string): string {
     "bloomberg": "bloomberg.com",
     "freshfields": "freshfields.com",
     "mercor": "mercor.com",
+    "indosuez": "ca-indosuez.com",
+    "indosuez wealth management": "ca-indosuez.com",
+    "ca indosuez": "ca-indosuez.com",
+    "alantra": "alantra.com",
+    "hayfin": "hayfin.com",
+    "hayfin capital": "hayfin.com",
+    "barings": "barings.com",
+    "apollo management": "apollo.com",
+    "apollo global": "apollo.com",
+    "selby jennings": "selbyjennings.com",
+    "greenwich partners": "greenwichpartners.com",
+    "macquarie group": "macquarie.com",
+    "forvis mazars": "forvismazars.com",
+    "mazars": "forvismazars.com",
+    "frp advisory": "frpadvisory.com",
   };
 
   const normalized = company.toLowerCase().trim();
   if (known[normalized]) return known[normalized];
 
+  // Try without special chars (e.g. "Rothschild & Co" -> "rothschild  co" -> check "rothschild")
+  const stripped = normalized.replace(/[&+]/g, " ").replace(/\s+/g, " ").trim();
+  if (known[stripped]) return known[stripped];
+
+  // Try first word only (e.g. "Rothschild & Co" -> "rothschild")
+  const firstWord = stripped.split(" ")[0];
+  if (firstWord.length >= 4 && known[firstWord]) return known[firstWord];
+
   // Try to derive domain: strip common suffixes, use .com
-  const cleaned = normalized
-    .replace(/\b(s\.a\.|sa|sas|sarl|ltd|limited|inc|gmbh|plc|llp|group|france|uk)\b/gi, "")
+  const cleaned = stripped
+    .replace(/\b(s\.a\.|sa|sas|sarl|ltd|limited|inc|gmbh|plc|llp|group|france|uk|co)\b/gi, "")
     .replace(/[^a-z0-9\s]/g, "")
     .trim()
     .replace(/\s+/g, "");
@@ -88,14 +113,19 @@ export function CompanyLogo({
   className,
 }: CompanyLogoProps) {
   const [failed, setFailed] = useState(false);
+  const [tryAlt, setTryAlt] = useState(false);
 
   const domain = website
     ? website.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
     : domainFromCompany(company);
 
+  // Fallback: try just the first word + .com
+  const altDomain = company.toLowerCase().split(/[\s&,]+/)[0] + ".com";
+  const activeDomain = tryAlt ? altDomain : domain;
+
   const { px, cls } = sizeConfig[size];
 
-  if (!domain || failed) {
+  if (!activeDomain || (failed && tryAlt)) {
     return (
       <div
         className={cn(
@@ -111,12 +141,18 @@ export function CompanyLogo({
 
   return (
     <img
-      src={`https://img.logo.dev/${domain}?token=pk_X-1ZO13GSgeOoUrIuJ6GMQ&size=${px * 2}&format=png`}
+      src={`https://img.logo.dev/${activeDomain}?token=pk_X-1ZO13GSgeOoUrIuJ6GMQ&size=${px * 2}&format=png`}
       alt={company}
       width={px}
       height={px}
       className={cn(cls, "rounded bg-white object-contain shrink-0", className)}
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (!tryAlt && altDomain !== activeDomain) {
+          setTryAlt(true);
+        } else {
+          setFailed(true);
+        }
+      }}
     />
   );
 }
