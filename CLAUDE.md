@@ -122,104 +122,167 @@ The user then goes to the dashboard to approve/modify/ignore each draft before s
 
 ## Scraping d'offres ("scrape les offres")
 
-When the user says "scrape les offres", run the following:
+When the user says "scrape les offres", run the following phases in order.
 
-### Step 1 — Create a ScrapeRun
+### Phase 0 — Load company registry
+
+Fetch all active companies with scraping config:
+```bash
+curl -s "http://localhost:3000/api/companies?active=true" \
+  -H "Authorization: Bearer $BREAKIN_API_TOKEN"
+```
+
+Filter to companies where `atsType` is not null. Group by `atsType`.
+
+---
+
+### Phase 1 — Create ScrapeRun
+
 ```bash
 curl -s -X POST http://localhost:3000/api/scrape-runs \
   -H "Content-Type: application/json" \
-  -d '{"source": "<source_name>"}'
+  -H "Authorization: Bearer $BREAKIN_API_TOKEN" \
+  -d '{"source": "registry"}'
 ```
+
 Save the returned `id` as `scrapeRunId`.
 
-### Step 2 — Fetch offers from sources
+---
 
-#### Adzuna (FR jobs)
-```bash
-curl -s "https://api.adzuna.com/v1/api/jobs/fr/search/1?app_id={ADZUNA_APP_ID}&app_key={ADZUNA_API_KEY}&what=private+credit+analyst&where=Paris&results_per_page=50&content-type=application/json"
+### Phase 2 — Scrape per ATS type
+
+For each company in the registry, call the appropriate handler:
+
+#### Handler: workday
 ```
-Normalize each result:
-- title: `result.title`
-- company: `result.company.display_name`
-- city: `result.location.display_name` (first part)
-- country: "France"
-- contractType: `result.contract_type` or "CDI"
-- description: `result.description`
-- url: `result.redirect_url`
-- source: "adzuna"
-- salary: `result.salary_min` - `result.salary_max` if present
-- postedAt: `result.created`
-
-#### WTTJ (Welcome to the Jungle)
-```bash
-curl -s "https://www.welcometothejungle.com/api/v1/jobs?query=private+credit&location=Paris&per_page=50"
+POST https://{atsConfig.tenant}.{atsConfig.wdServer}.myworkdayjobs.com/wday/cxs/{atsConfig.tenant}/{atsConfig.site}/jobs
+Headers: Accept: application/json, Content-Type: application/json, Accept-Language: en-US, User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+Body: { "appliedFacets": {}, "limit": 20, "offset": 0, "searchText": "" }
 ```
-Normalize each result:
-- title: `result.name`
-- company: `result.organization.name`
-- city: `result.office.city`
-- country: `result.office.country_code` mapped to country name
-- contractType: `result.contract_type.fr`
-- description: `result.description`
-- url: `https://www.welcometothejungle.com/fr/companies/` + `result.organization.slug` + `/jobs/` + `result.slug`
-- source: "wttj"
-- salary: `result.salary` if present
-- postedAt: `result.published_at`
-
-#### Reed (UK jobs)
-```bash
-curl -s -u "{REED_API_KEY}:" "https://www.reed.co.uk/api/1.0/search?keywords=private+credit+analyst&locationName=London&resultsToTake=50"
+For each result in `jobPostings`, GET the detail:
 ```
-Normalize each result:
-- title: `result.jobTitle`
-- company: `result.employerName`
-- city: `result.locationName`
-- country: "United Kingdom"
-- contractType: map `result.contractType` or "Permanent"
-- description: `result.jobDescription`
-- url: `result.jobUrl`
-- source: "reed"
-- salary: `result.minimumSalary` - `result.maximumSalary` if present
-- postedAt: `result.date`
+GET https://{tenant}.{wdServer}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/job/{result.externalPath}
+```
 
-### Step 3 — Import offers
-Combine all normalized offers from all sources and POST them:
+#### Handler: greenhouse
+```
+GET https://boards-api.greenhouse.io/v1/boards/{atsConfig.boardToken}/jobs?content=true
+```
+
+#### Handler: lever
+```
+GET https://api.lever.co/v0/postings/{atsConfig.slug}?mode=json
+```
+EU firms: `https://api.eu.lever.co/v0/postings/{slug}?mode=json`
+
+#### Handler: smartrecruiters
+```
+GET https://api.smartrecruiters.com/v1/companies/{atsConfig.companyIdentifier}/postings
+```
+
+#### Handler: workable
+```
+GET https://apply.workable.com/api/v1/widget/accounts/{atsConfig.clientname}
+```
+
+#### Handler: ashby
+```
+GET https://api.ashbyhq.com/posting-api/job-board/{atsConfig.clientname}?includeCompensation=true
+```
+
+#### Handler: custom (Tavily)
+Use the Tavily MCP tool with `{ query: atsConfig.query, max_results: 10 }`.
+Parse the results to extract: title, company, url, description, postedAt.
+
+---
+
+### Phase 3 — Filter, normalize, import
+
+For each result from all handlers:
+
+**1. Filter** — reject if title or description contains these role keywords:
+- IT: developer, software, engineer, data scientist, devops, infrastructure, cybersecurity
+- Legal: lawyer, counsel, compliance (standalone), paralegal, notaire
+- HR: human resources, talent acquisition, recruiter (unless it's a finance recruiter firm)
+- Accounting: accountant, comptable, audit (standalone)
+- Marketing: marketing, communication, brand
+
+**2. Normalize** to:
+```json
+{
+  "title": "...",
+  "company": "company.name",
+  "city": "company.city",
+  "country": "company.country",
+  "contractType": "CDI",
+  "description": "...",
+  "url": "...",
+  "source": "company.atsType",
+  "salary": null,
+  "postedAt": null
+}
+```
+contractType: infer from title + description ("alternance", "stage", "VIE", "CDD" → set accordingly, else "CDI").
+
+**3. Import**:
 ```bash
 curl -s -X POST http://localhost:3000/api/offers/import \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $BREAKIN_API_TOKEN" \
   -d '{"offers": [...], "scrapeRunId": "<scrapeRunId>"}'
 ```
-The API deduplicates by URL automatically. Response: `{ imported, duplicates, total }`.
 
-### Step 4 — Score offers against CV
-1. Fetch the CV:
-   ```bash
-   curl -s http://localhost:3000/api/cv
-   ```
-2. Fetch newly imported offers (status "new"):
-   ```bash
-   curl -s "http://localhost:3000/api/offers?status=new"
-   ```
-3. For each offer, read the title + description and determine:
-   - **contractType**: one of "CDI", "CDD", "Stage", "Alternance", "VIE", "Freelance". Read the actual content — don't guess from keywords alone. If the description says "6-month internship" it's Stage, if it says "permanent role" it's CDI, if "apprenticeship/alternance" it's Alternance, etc.
-   - **score**: 0-100 (how well the candidate matches)
-   - **analysis**: 2-3 sentences explaining the score
-4. Update the offer (contract type + score in one call):
-   ```bash
-   curl -s -X PUT http://localhost:3000/api/offers/<id> \
-     -H "Content-Type: application/json" \
-     -d '{"contractType": "<type>"}'
-   ```
-   Then POST the score:
-   ```bash
-   curl -s -X POST http://localhost:3000/api/offers/<id>/score \
-     -H "Content-Type: application/json" \
-     -d '{"score": <number>, "analysis": "<text>"}'
-   ```
+**4. Update lastScrapedAt** for each company:
+```bash
+curl -s -X PUT http://localhost:3000/api/companies/<company.id> \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $BREAKIN_API_TOKEN" \
+  -d '{"lastScrapedAt": "<ISO timestamp>"}'
+```
 
-### Step 5 — Report
+---
+
+### Phase 4 — Score new offers
+
+**1. Fetch newly imported offers:**
+```bash
+curl -s "http://localhost:3000/api/offers?status=new" \
+  -H "Authorization: Bearer $BREAKIN_API_TOKEN"
+```
+
+**2. Fetch CV:**
+```bash
+curl -s http://localhost:3000/api/cv \
+  -H "Authorization: Bearer $BREAKIN_API_TOKEN"
+```
+
+**3. For each new offer, score 0-100 based on:**
+- Role relevance (Private Credit > LevFin > M&A > Debt Advisory > TS > PE)
+- Seniority match (Analyst/Associate preferred, not VP+ unless notable firm)
+- City match (Paris = +10, London = +5, Dubai/Zurich/Geneva = +3)
+- Firm tier (Tier 1 = +15, Tier 2 = +10, Tier 3 = +5)
+- Contract type: CDI/VIE = +10, Stage/Alternance = +5 if match, CDD = neutral
+
+```bash
+curl -s -X POST http://localhost:3000/api/offers/<id>/score \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $BREAKIN_API_TOKEN" \
+  -d '{"score": <number>, "analysis": "<2-3 sentences>"}'
+```
+
+---
+
+### Phase 5 — Report
+
 Summarize:
-- Total offers scraped
-- New offers imported
-- Duplicates skipped
-- Top 5 offers by match score (title, company, score)
+- Companies scraped: X
+- New offers imported: Y
+- Duplicates skipped: Z
+- Top 5 offers by score (title, company, city, score)
+
+Send Telegram notification for any offer with score >= 85:
+```
+🔥 Nouvelle offre score {score}/100
+{title} @ {company} ({city})
+{url}
+```
