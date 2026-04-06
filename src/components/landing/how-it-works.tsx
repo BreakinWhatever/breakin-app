@@ -153,17 +153,16 @@ export default function HowItWorks() {
               transition={{ duration: 0.5, delay: i * 0.15 }}
               className="relative"
             >
-              {/* Connector line */}
+              {/* Connector line — starts after emoji+number, ends at start of next column */}
               {i < t.steps.length - 1 && (
                 <div
                   className="hidden md:block absolute"
                   style={{
-                    top: 32,
-                    left: "100%",
-                    width: "100%",
+                    top: 30,
+                    left: 125,
+                    right: -32,
                     height: 1,
                     backgroundColor: "#E1E2E5",
-                    transform: "translateX(-50%)",
                     zIndex: 0,
                   }}
                 />
@@ -172,7 +171,7 @@ export default function HowItWorks() {
               <div className="relative" style={{ zIndex: 1 }}>
                 <div
                   className="flex items-center"
-                  style={{ gap: 12, marginBottom: 16, backgroundColor: "#fff", position: "relative", zIndex: 2, paddingRight: 12, width: "fit-content" }}
+                  style={{ gap: 12, marginBottom: 16 }}
                 >
                   <span style={{ fontSize: 32 }}>{step.emoji}</span>
                   <span
