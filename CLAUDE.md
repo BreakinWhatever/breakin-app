@@ -582,3 +582,5 @@ tg "❌ <b>Échec candidature</b>
 <!-- watcher-ping: sync test 10:13:24 -->
 
 <!-- watcher-ping: post-FDA test 10:15:11 -->
+
+<!-- watcher-ping: desktop path test 10:16:52 -->
