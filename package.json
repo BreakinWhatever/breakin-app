@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "agent:telegram-router": "tsx scripts/telegram-router.ts",
+    "source:search": "tsx scripts/source-offers.ts search",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -31,6 +32,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "crawlee": "^3.16.0",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.38.0",
     "ical-generator": "^10.1.0",

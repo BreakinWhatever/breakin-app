@@ -13,6 +13,12 @@ import {
   type RouterAgent,
   type RouterState,
 } from "../src/lib/telegram-router";
+import { buildSearchCliArgs } from "../src/lib/sourcing/cli";
+import {
+  formatSearchSummaryForTelegram,
+  parseSearchSummaryOutput,
+  parseTelegramSearchIntent,
+} from "../src/lib/sourcing/telegram";
 
 interface TelegramChat {
   id: number;
@@ -57,6 +63,8 @@ interface RuntimeConfig {
   codexBin: string;
   codexModel?: string;
   codexTimeoutMs: number;
+  searchCliBin: string;
+  searchTimeoutMs: number;
 }
 
 function requireEnv(name: string): string {
@@ -93,6 +101,8 @@ function buildConfig(): RuntimeConfig {
     codexBin: process.env.CODEX_BIN ?? "codex",
     codexModel: process.env.CODEX_MODEL,
     codexTimeoutMs: numberFromEnv("CODEX_TIMEOUT_MS", 180_000),
+    searchCliBin: process.env.SEARCH_CLI_BIN ?? "npx",
+    searchTimeoutMs: numberFromEnv("SEARCH_TIMEOUT_MS", 15 * 60_000),
   };
 }
 
@@ -331,6 +341,39 @@ async function handleMessage(
 
   await sendChatAction(config, message.chat.id, "typing").catch(() => {});
 
+  const searchIntent = parseTelegramSearchIntent(text);
+  if (searchIntent) {
+    const searchResult = await runSearchPipeline(config, searchIntent.request);
+    const reply = searchResult.reply;
+
+    await sendMessage(config, message.chat.id, reply, message.message_id);
+
+    let nextState = appendHistory(
+      state,
+      chatId,
+      {
+        role: "user",
+        text,
+        at: new Date().toISOString(),
+      },
+      config.maxHistoryTurns
+    );
+
+    nextState = appendHistory(
+      nextState,
+      chatId,
+      {
+        role: "assistant",
+        text: reply,
+        at: new Date().toISOString(),
+        agent: "codex",
+      },
+      config.maxHistoryTurns
+    );
+
+    return nextState;
+  }
+
   const prompt = buildAgentPrompt({
     message: text,
     history: state.chats[chatId] ?? [],
@@ -387,6 +430,48 @@ async function handleMessage(
   );
 
   return nextState;
+}
+
+async function runSearchPipeline(
+  config: RuntimeConfig,
+  request: Record<string, unknown>
+) {
+  const outputDir = path.join(
+    config.workspaceDir,
+    ".runtime",
+    "source-offers",
+    `telegram-${Date.now()}`
+  );
+  const args = buildSearchCliArgs({
+    ...request,
+    source: "telegram",
+    outputDir,
+  });
+
+  const result = await runCliCommand(
+    config.searchCliBin,
+    args,
+    config.workspaceDir,
+    config.searchTimeoutMs
+  );
+  const summary = parseSearchSummaryOutput(result.stdout);
+
+  if (result.ok && summary) {
+    return { reply: formatSearchSummaryForTelegram(summary) };
+  }
+
+  const details = normalizeAgentOutput(
+    [result.stderr, result.stdout, result.error]
+      .filter(Boolean)
+      .join("\n"),
+    1500
+  );
+
+  return {
+    reply: details
+      ? `La recherche d'offres a echoue.\n${details}`
+      : "La recherche d'offres a echoue. Verifie le pipeline de sourcing sur le VPS.",
+  };
 }
 
 async function main(): Promise<void> {
