@@ -35,7 +35,7 @@ async function main() {
   const summary = await runApplyJob(jobId, process.cwd(), {
     onProgress: async (progress) => {
       await updateApplyJobRecord(jobId, {
-        status: progress.phase === "email_verification" ? "waiting_email" : "running",
+        status: resolveJobStatus(progress.phase),
         lastMessage: progress.message ?? progress.phase,
         platform: progress.platform ?? undefined,
       });
@@ -86,6 +86,13 @@ function shouldNotify(
 ) {
   if (progress.phase !== lastPhase) return true;
   return Date.now() - lastNotifiedAt >= 60_000;
+}
+
+function resolveJobStatus(phase: ApplyProgress["phase"]) {
+  if (phase === "email_verification") return "waiting_email" as const;
+  if (phase === "completed") return "succeeded" as const;
+  if (phase === "failed") return "failed" as const;
+  return "running" as const;
 }
 
 async function sendTelegramMessage(

@@ -45,12 +45,19 @@ export function isApplyJobActive(status: string) {
   return ACTIVE_APPLY_STATUSES.has(status);
 }
 
+export function hasApplyJobEnded(job: Pick<ApplyJobView, "endedAt" | "status">) {
+  return Boolean(job.endedAt) || job.status === "succeeded" || job.status === "failed" || job.status === "cancelled";
+}
+
 export function isSearchJobActive(status: string) {
   return ACTIVE_SEARCH_STATUSES.has(status);
 }
 
 export function deriveOfferStatus(currentStatus: string, job?: ApplyJobView | null) {
   if (!job) return currentStatus;
+  if (hasApplyJobEnded(job) && job.status === "running" && job.endedAt) {
+    return "applied";
+  }
   if (job.status === "succeeded") return "applied";
   if (job.status === "failed" || job.status === "cancelled") return "apply_failed";
   if (isApplyJobActive(job.status)) return "apply_requested";

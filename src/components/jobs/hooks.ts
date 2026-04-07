@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ApplyJobView, SearchJobView } from "./types";
-import { isApplyJobActive, isSearchJobActive } from "./job-progress";
+import { hasApplyJobEnded, isApplyJobActive, isSearchJobActive } from "./job-progress";
 
 const TERMINAL_APPLY_JOB_TTL_MS = 3 * 60 * 1000;
 
@@ -84,7 +84,7 @@ export function useRecentApplyJobs(trackedJobIds: string[] = []) {
       const recent = Array.isArray(payload) ? payload as ApplyJobView[] : [];
       const now = Date.now();
       const filtered = recent.filter((job) => {
-        if (isApplyJobActive(job.status)) return true;
+        if (isApplyJobActive(job.status) && !hasApplyJobEnded(job)) return true;
         if (!tracked.has(job.id)) return false;
 
         const terminalAt = job.endedAt ?? job.updatedAt ?? job.createdAt;
@@ -95,7 +95,7 @@ export function useRecentApplyJobs(trackedJobIds: string[] = []) {
       setJobs(filtered.slice(0, 8));
       setLoading(false);
 
-      const hasActive = filtered.some((job) => isApplyJobActive(job.status));
+      const hasActive = filtered.some((job) => isApplyJobActive(job.status) && !hasApplyJobEnded(job));
       timeoutId = setTimeout(poll, hasActive || filtered.length > 0 ? 2500 : 10000);
     }
 
