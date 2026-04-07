@@ -580,3 +580,5 @@ tg "❌ <b>Échec candidature</b>
 6. **Fallback always** — si tout échoue, envoyer l'URL pour candidature manuelle sur TG
 
 <!-- watcher-ping: sync test 10:13:24 -->
+
+<!-- watcher-ping: post-FDA test 10:15:11 -->
