@@ -25,6 +25,8 @@ import type {
   SearchSummary,
 } from "./types";
 
+const MIN_TOP_OFFER_SCORE = 50;
+
 interface CrawlUserData {
   company: SourceCompany;
   pageUrl: string;
@@ -314,14 +316,17 @@ export async function runOfferSearch(
       llmAssistedOffers,
       startedAt: startedAt.toISOString(),
       endedAt: endedAt.toISOString(),
-      topOffers: scoredOffers.slice(0, 5).map((offer) => ({
-        title: offer.title,
-        company: offer.company,
-        city: offer.city,
-        country: offer.country,
-        url: offer.url,
-        matchScore: offer.matchScore,
-      })),
+      topOffers: scoredOffers
+        .filter((offer) => (offer.matchScore ?? 0) >= MIN_TOP_OFFER_SCORE)
+        .slice(0, 5)
+        .map((offer) => ({
+          title: offer.title,
+          company: offer.company,
+          city: offer.city,
+          country: offer.country,
+          url: offer.url,
+          matchScore: offer.matchScore,
+        })),
       errors: errors.slice(0, 20),
       artifacts,
     };

@@ -106,7 +106,7 @@ async function fetchWorkdayJobs(
         stringValue(info?.location) ||
         stringValue(info?.locationsText);
       const text = `${title}\n${description}\n${arrayText(posting.bulletFields)}\n${locationText}`;
-      if (containsExcludedRole(text)) continue;
+      if (containsExcludedRole(title)) continue;
       if (!withinDays(resolvePostedAt(posting, info), context.request.days)) continue;
 
       const location = extractCityCountry(text, context.company);
@@ -166,7 +166,7 @@ async function fetchGreenhouseJobs(
       } satisfies ExtractedJob;
     })
     .filter((job) => job.url && job.title)
-    .filter((job) => !containsExcludedRole(`${job.title}\n${job.description}`));
+    .filter((job) => !containsExcludedRole(job.title));
 }
 
 async function fetchLeverJobs(
@@ -214,7 +214,7 @@ async function fetchLeverJobs(
       } satisfies ExtractedJob;
     })
     .filter((job) => job.url && job.title)
-    .filter((job) => !containsExcludedRole(`${job.title}\n${job.description}`))
+    .filter((job) => !containsExcludedRole(job.title))
     .filter((job) => withinDays(job.postedAt, context.request.days));
 }
 
@@ -334,7 +334,7 @@ async function fetchWorkableJobs(
       } satisfies ExtractedJob;
     })
     .filter((job) => job.url && job.title)
-    .filter((job) => !containsExcludedRole(`${job.title}\n${job.description}`))
+    .filter((job) => !containsExcludedRole(job.title))
     .filter((job) => withinDays(job.postedAt, context.request.days));
 }
 
@@ -397,7 +397,7 @@ async function fetchAshbyJobs(
       } satisfies ExtractedJob;
     })
     .filter((job) => job.url && job.title)
-    .filter((job) => !containsExcludedRole(`${job.title}\n${job.description}`))
+    .filter((job) => !containsExcludedRole(job.title))
     .filter((job) => withinDays(job.postedAt, context.request.days));
 }
 
@@ -435,7 +435,7 @@ export async function fetchGenericJobs(
     seen.add(jobUrl);
 
     const combined = `${title}\n${jobUrl}`;
-    if (containsExcludedRole(combined)) continue;
+    if (containsExcludedRole(title)) continue;
 
     const location = extractCityCountry(combined, context.company);
     jobs.push({

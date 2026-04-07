@@ -35,7 +35,13 @@ export const DEFAULT_TARGET_CITIES = [
 ];
 
 const ROLE_EXCLUSION_PATTERNS = [
-  /\bit\b/i,
+  /\binformation technology\b/i,
+  /\bit support\b/i,
+  /\bit operations?\b/i,
+  /\bit security\b/i,
+  /\bit risk\b/i,
+  /\bit audit\b/i,
+  /\bit infrastructure\b/i,
   /\bdeveloper\b/i,
   /\bsoftware\b/i,
   /\bengineer\b/i,

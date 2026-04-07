@@ -53,7 +53,7 @@ function filterExtractedJobs(jobs: ExtractedJob[], context: HarvestContext) {
       .filter(Boolean)
       .join("\n");
 
-    if (containsExcludedRole(jobText)) return false;
+    if (containsExcludedRole(job.title)) return false;
 
     const keywordMatch =
       matchesAny(jobText, keywords)

@@ -30,6 +30,7 @@ export function scoreByRules(
   options: ScoreOptions = {}
 ): ScoreResult {
   const text = `${offer.title}\n${offer.description ?? ""}`;
+  const titleText = offer.title;
   const locationText = `${offer.city ?? ""} ${offer.country ?? ""}`;
   const keywords = toSearchList(options.keywords, DEFAULT_FINANCE_KEYWORDS);
   const cities = options.cities ?? [];
@@ -37,7 +38,7 @@ export function scoreByRules(
   const factors: string[] = [];
   let score = 0;
 
-  if (containsExcludedRole(text)) {
+  if (containsExcludedRole(titleText)) {
     return {
       score: 0,
       factors: ["excluded-role"],
@@ -45,9 +46,19 @@ export function scoreByRules(
     };
   }
 
+  if (looksLikeNonTargetFinanceTitle(titleText)) {
+    return {
+      score: 0,
+      factors: ["non-target-title"],
+      rationale: "non-target-title",
+    };
+  }
+
   const keywordHits = keywords.filter((keyword) =>
     new RegExp(keyword, "i").test(text)
   ).length;
+  const titleLooksRelevant = looksLikeTargetFinanceTitle(titleText);
+  const hasTargetSignal = keywordHits > 0 || titleLooksRelevant;
   if (keywordHits > 0) {
     const addition = Math.min(45, 12 + (keywordHits - 1) * 6);
     score += addition;
@@ -56,18 +67,21 @@ export function scoreByRules(
     factors.push("keywords:+0");
   }
 
-  if (cities.length === 0 || matchesAny(`${text}\n${locationText}`, cities)) {
+  if (
+    hasTargetSignal
+    && (cities.length === 0 || matchesAny(`${text}\n${locationText}`, cities))
+  ) {
     score += 20;
     factors.push("location:+20");
   } else {
     factors.push("location:+0");
   }
 
-  const recencyScore = scoreRecency(offer.postedAt);
+  const recencyScore = hasTargetSignal ? scoreRecency(offer.postedAt) : 0;
   score += recencyScore;
   factors.push(`recency:+${recencyScore}`);
 
-  const seniorityScore = scoreSeniority(offer.title);
+  const seniorityScore = scoreSeniority(offer.title, hasTargetSignal);
   score += seniorityScore;
   factors.push(`seniority:+${seniorityScore}`);
 
@@ -94,12 +108,27 @@ function scoreRecency(postedAt: string | null | undefined) {
   return 0;
 }
 
-function scoreSeniority(title: string) {
-  if (/\b(analyst|associate|junior|intern(ship)?|off[- ]?cycle|graduate)\b/i.test(title)) {
+function scoreSeniority(title: string, hasTargetSignal: boolean) {
+  if (/\b(analyst|junior|intern(ship)?|off[- ]?cycle|graduate)\b/i.test(title)) {
     return 10;
+  }
+  if (hasTargetSignal && /\bassociate\b/i.test(title)) {
+    return 6;
   }
   if (/\b(vp|vice president|director|senior|manager)\b/i.test(title)) {
     return 2;
   }
   return 4;
+}
+
+function looksLikeTargetFinanceTitle(title: string) {
+  return /\b(financial|finance|debt|credit|lending|levfin|leveraged finance|m&a|acquisition|advisory|transaction|restructuring|private equity|private credit|private debt|corporate finance|structured finance|capital deployment|private financing|investment banking|fund finance)\b/i.test(
+    title
+  );
+}
+
+function looksLikeNonTargetFinanceTitle(title: string) {
+  return /\b(governance|policy|controls?|reporting|client relationship|client experience|client engagement|portfolio services|operations?|middle office|accounting|tax|engineering|implementation consultant|sales specialist|identity management|incident|problem manager|product strategy|platform|compliance|risk)\b/i.test(
+    title
+  );
 }

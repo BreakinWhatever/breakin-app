@@ -88,6 +88,9 @@ export function formatSearchSummaryForTelegram(summary: SearchSummary) {
         `- ${offer.matchScore ?? 0}/100 ${offer.title} @ ${offer.company} (${offer.city || offer.country})`
       );
     }
+  } else {
+    lines.push("");
+    lines.push("Aucune offre forte retenue (>= 50/100).");
   }
 
   if (summary.errors.length > 0) {

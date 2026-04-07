@@ -111,6 +111,8 @@ function buildAssessmentPrompt(offer: OfferLike, baseScore: ScoreResult) {
   return [
     "Return JSON only.",
     "Assess this finance job offer for a candidate targeting Private Credit, LevFin, M&A, Transaction Services, and related analyst/off-cycle roles.",
+    "Be strict. Roles in operations, governance, controls, reporting, product strategy, client service, platform support, accounting, tax, legal, compliance, engineering, technology, middle office, or risk should usually be marked relevant=false unless the title clearly points to direct investing, underwriting, lending, deal execution, restructuring, or transaction advisory work.",
+    "Do not reward a role just because it is at Analyst/Associate level or in London/Paris.",
     "Fields required: relevant(boolean), score(number 0..100), rationale(string), contractType(string|null).",
     "Keep the rationale short and factual.",
     "",
