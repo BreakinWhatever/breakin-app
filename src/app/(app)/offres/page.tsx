@@ -1,28 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Send, Loader2, CheckCircle2, XCircle, EyeOff } from "lucide-react";
+import { Send, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { FilterBar, type FilterConfig } from "@/components/shared/filter-bar";
 import OffersTable, { type OfferRow } from "@/components/offers/offers-table";
 import { OfferSidePanel, type OfferPanelData } from "@/components/offers/offer-side-panel";
 import { type BulkAction } from "@/components/shared/data-table";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-
-interface ApplyProgress {
-  offerId: string;
-  company: string;
-  role: string;
-  status: "pending" | "applying" | "done" | "error";
-  message?: string;
-}
+import { SearchJobCard } from "@/components/jobs/search-job-card";
+import { ApplyJobsTray } from "@/components/jobs/apply-jobs-tray";
+import { deriveOfferStatus } from "@/components/jobs/job-progress";
+import { useRecentApplyJobs } from "@/components/jobs/hooks";
 
 export default function OffresPage() {
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [applyQueue, setApplyQueue] = useState<ApplyProgress[]>([]);
+  const [trackedApplyJobIds, setTrackedApplyJobIds] = useState<string[]>([]);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -36,6 +30,7 @@ export default function OffresPage() {
   // Side panel
   const [selectedOffer, setSelectedOffer] = useState<OfferPanelData | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const { jobs: applyJobs } = useRecentApplyJobs(trackedApplyJobIds);
 
   // Fetch offers
   const fetchOffers = useCallback(() => {
@@ -150,49 +145,58 @@ export default function OffresPage() {
     setSelectedOffer((prev) => prev?.id === id ? { ...prev, status } : prev);
   };
 
+  useEffect(() => {
+    if (applyJobs.length === 0) return;
+
+    const latestByOffer = new Map<string, (typeof applyJobs)[number]>();
+    for (const job of applyJobs) {
+      const current = latestByOffer.get(job.offerId);
+      if (!current || new Date(job.updatedAt).getTime() > new Date(current.updatedAt).getTime()) {
+        latestByOffer.set(job.offerId, job);
+      }
+    }
+
+    setOffers((prev) =>
+      prev.map((offer) => {
+        const job = latestByOffer.get(offer.id);
+        if (!job) return offer;
+        const status = deriveOfferStatus(offer.status, job);
+        return status === offer.status ? offer : { ...offer, status };
+      })
+    );
+    setSelectedOffer((prev) => {
+      if (!prev) return prev;
+      const job = latestByOffer.get(prev.id);
+      if (!job) return prev;
+      const status = deriveOfferStatus(prev.status, job);
+      return status === prev.status ? prev : { ...prev, status };
+    });
+  }, [applyJobs]);
+
   // Bulk apply
   async function handleBulkApply(selected: OfferRow[]) {
-    const queue: ApplyProgress[] = selected.map((o) => ({
-      offerId: o.id,
-      company: o.company,
-      role: o.title,
-      status: "pending" as const,
-    }));
-    setApplyQueue(queue);
-
-    setApplyQueue((prev) =>
-      prev.map((item) => ({ ...item, status: "applying", message: "Mise en file..." }))
-    );
-
     await Promise.all(
-      queue.map(async (item) => {
+      selected.map(async (item) => {
         try {
-          const res = await fetch(`/api/offers/${item.offerId}/apply`, {
+          const res = await fetch(`/api/offers/${item.id}/apply`, {
             method: "POST",
           });
           if (!res.ok) throw new Error("Failed");
+          const payload = await res.json().catch(() => null);
 
-          updateOfferStatus(item.offerId, "apply_requested");
-          setApplyQueue((prev) =>
-            prev.map((current) =>
-              current.offerId === item.offerId
-                ? { ...current, status: "done", message: "En file" }
-                : current
-            )
-          );
+          updateOfferStatus(item.id, "apply_requested");
+          if (payload?.jobId) {
+            setTrackedApplyJobIds((prev) =>
+              prev.includes(payload.jobId) ? prev : [...prev, payload.jobId]
+            );
+          }
         } catch {
-          setApplyQueue((prev) =>
-            prev.map((current) =>
-              current.offerId === item.offerId
-                ? { ...current, status: "error", message: "Erreur" }
-                : current
-            )
-          );
+          updateOfferStatus(item.id, "apply_failed");
         }
       })
     );
 
-    toast.success(`${queue.length} candidature(s) lancee(s)`);
+    toast.success(`${selected.length} candidature(s) lancee(s)`);
   }
 
   // Bulk ignore
@@ -241,6 +245,8 @@ export default function OffresPage() {
         onClearFilters={handleClearFilters}
       />
 
+      <SearchJobCard />
+
       <OffersTable
         offers={offers}
         loading={loading}
@@ -249,57 +255,20 @@ export default function OffresPage() {
         bulkActions={bulkActions}
       />
 
-      {/* Apply Progress Tracker */}
-      {applyQueue.length > 0 && (
-        <Card className="max-w-lg fixed bottom-6 right-6 z-50 shadow-lg border-2">
-          <CardContent className="p-4 space-y-2">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold">Candidatures en cours</h3>
-              {applyQueue.every((a) => a.status === "done" || a.status === "error") && (
-                <button
-                  onClick={() => setApplyQueue([])}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Fermer
-                </button>
-              )}
-            </div>
-            {applyQueue.map((item) => (
-              <div key={item.offerId} className="flex items-center gap-2 text-sm">
-                {item.status === "pending" && (
-                  <div className="size-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
-                )}
-                {item.status === "applying" && (
-                  <Loader2 className="size-4 text-blue-500 animate-spin shrink-0" />
-                )}
-                {item.status === "done" && (
-                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                )}
-                {item.status === "error" && (
-                  <XCircle className="size-4 text-red-500 shrink-0" />
-                )}
-                <span className="truncate flex-1">
-                  {item.company} — {item.role}
-                </span>
-                {item.status === "applying" && (
-                  <Badge variant="outline" className="text-xs shrink-0">
-                    En cours
-                  </Badge>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
       <OfferSidePanel
         offer={selectedOffer}
         open={panelOpen}
         onOpenChange={setPanelOpen}
         onPrev={handlePrev}
         onNext={handleNext}
-        onApplied={(id) => updateOfferStatus(id, "apply_requested")}
+        onApplied={(id, jobId) => {
+          updateOfferStatus(id, "apply_requested");
+          if (jobId) {
+            setTrackedApplyJobIds((prev) => (prev.includes(jobId) ? prev : [...prev, jobId]));
+          }
+        }}
       />
+      <ApplyJobsTray jobs={applyJobs} />
     </div>
   );
 }

@@ -17,6 +17,9 @@ import {
   Send,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { ApplyJobCard } from "@/components/jobs/apply-job-card";
+import { useLatestOfferApplyJob } from "@/components/jobs/hooks";
+import { deriveOfferStatus } from "@/components/jobs/job-progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,6 +70,7 @@ export default function OfferDetailPage() {
   const params = useParams();
   const [offer, setOffer] = useState<OfferDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const { job: applyJob } = useLatestOfferApplyJob(typeof params.id === "string" ? params.id : null);
 
   useEffect(() => {
     if (!params.id) return;
@@ -112,6 +116,8 @@ export default function OfferDetailPage() {
     setApplying(false);
   };
 
+  const effectiveStatus = offer ? deriveOfferStatus(offer.status, applyJob) : "";
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -156,7 +162,7 @@ export default function OfferDetailPage() {
         title={offer.title}
         description={`${offer.company} - ${offer.city}`}
         actions={
-          <Badge variant="outline">{statusLabels[offer.status] || offer.status}</Badge>
+          <Badge variant="outline">{statusLabels[effectiveStatus] || effectiveStatus}</Badge>
         }
       />
 
@@ -307,12 +313,12 @@ export default function OfferDetailPage() {
                   variant="default"
                   className="w-full"
                   onClick={handleApply}
-                  disabled={applying || offer.status === "applied" || offer.status === "apply_requested"}
+                  disabled={applying || effectiveStatus === "applied" || effectiveStatus === "apply_requested"}
                 >
                   <Send className="size-4 mr-1.5" />
-                  {offer.status === "applied"
+                  {effectiveStatus === "applied"
                     ? "Postulé ✓"
-                    : offer.status === "apply_requested"
+                    : effectiveStatus === "apply_requested"
                     ? "En cours..."
                     : applying
                     ? "Lancement..."
@@ -321,6 +327,8 @@ export default function OfferDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {applyJob && <ApplyJobCard job={applyJob} />}
         </div>
       </div>
     </div>

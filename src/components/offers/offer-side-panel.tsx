@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SidePanel } from "@/components/shared/side-panel";
-import { Badge } from "@/components/ui/badge";
+import { ApplyJobCard } from "@/components/jobs/apply-job-card";
+import { useLatestOfferApplyJob } from "@/components/jobs/hooks";
+import { deriveOfferStatus } from "@/components/jobs/job-progress";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -81,18 +83,24 @@ export function OfferSidePanel({
   onPrev,
   onNext,
   onApplied,
-}: OfferSidePanelProps & { onApplied?: (id: string) => void }) {
+}: OfferSidePanelProps & { onApplied?: (id: string, jobId?: string) => void }) {
   const [applying, setApplying] = useState(false);
+  const { job: applyJob } = useLatestOfferApplyJob(offer?.id);
 
   const handleApply = async () => {
     if (!offer || applying) return;
     setApplying(true);
     const res = await fetch(`/api/offers/${offer.id}/apply`, { method: "POST" });
-    if (res.ok) onApplied?.(offer.id);
+    if (res.ok) {
+      const payload = await res.json().catch(() => null);
+      onApplied?.(offer.id, payload?.jobId);
+    }
     setApplying(false);
   };
 
   if (!offer) return null;
+
+  const effectiveStatus = deriveOfferStatus(offer.status, applyJob);
 
   const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
     new: { label: "Nouveau", variant: "default" },
@@ -102,7 +110,7 @@ export function OfferSidePanel({
     apply_failed: { label: "Echec", variant: "destructive" },
     ignored: { label: "Ignore", variant: "secondary" },
   };
-  const sConfig = statusConfig[offer.status] || statusConfig.new;
+  const sConfig = statusConfig[effectiveStatus] || statusConfig.new;
 
   return (
     <SidePanel
@@ -166,12 +174,12 @@ export function OfferSidePanel({
           variant="default"
           className="w-full"
           onClick={handleApply}
-          disabled={applying || offer.status === "applied" || offer.status === "apply_requested"}
+          disabled={applying || effectiveStatus === "applied" || effectiveStatus === "apply_requested"}
         >
           <Send className="size-4 mr-1.5" />
-          {offer.status === "applied"
+          {effectiveStatus === "applied"
             ? "Postulé ✓"
-            : offer.status === "apply_requested"
+            : effectiveStatus === "apply_requested"
             ? "En cours..."
             : applying
             ? "Lancement..."
@@ -186,6 +194,13 @@ export function OfferSidePanel({
           </a>
         )}
       </div>
+
+      {applyJob && (
+        <>
+          <Separator className="my-3" />
+          <ApplyJobCard job={applyJob} compact />
+        </>
+      )}
     </SidePanel>
   );
 }
