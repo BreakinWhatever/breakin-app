@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import type { ApplyJobView, SearchJobView } from "./types";
 import { isApplyJobActive, isSearchJobActive } from "./job-progress";
 
+const TERMINAL_APPLY_JOB_TTL_MS = 3 * 60 * 1000;
+
 export function useLatestOfferApplyJob(offerId?: string | null) {
   const [job, setJob] = useState<ApplyJobView | null>(null);
   const [loading, setLoading] = useState(false);
@@ -80,12 +82,21 @@ export function useRecentApplyJobs(trackedJobIds: string[] = []) {
       if (cancelled) return;
 
       const recent = Array.isArray(payload) ? payload as ApplyJobView[] : [];
-      const filtered = recent.filter((job) => tracked.has(job.id) || isApplyJobActive(job.status));
+      const now = Date.now();
+      const filtered = recent.filter((job) => {
+        if (isApplyJobActive(job.status)) return true;
+        if (!tracked.has(job.id)) return false;
+
+        const terminalAt = job.endedAt ?? job.updatedAt ?? job.createdAt;
+        const terminalTs = terminalAt ? new Date(terminalAt).getTime() : 0;
+        if (!terminalTs || Number.isNaN(terminalTs)) return false;
+        return now - terminalTs <= TERMINAL_APPLY_JOB_TTL_MS;
+      });
       setJobs(filtered.slice(0, 8));
       setLoading(false);
 
       const hasActive = filtered.some((job) => isApplyJobActive(job.status));
-      timeoutId = setTimeout(poll, hasActive || tracked.size > 0 ? 2500 : 10000);
+      timeoutId = setTimeout(poll, hasActive || filtered.length > 0 ? 2500 : 10000);
     }
 
     void poll();

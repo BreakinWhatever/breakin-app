@@ -17,8 +17,8 @@ export function ApplyJobsTray({ jobs }: { jobs: ApplyJobView[] }) {
   const allTerminal = visibleJobs.every((job) => !isApplyJobActive(job.status));
 
   return (
-    <Card className="fixed right-6 bottom-6 z-50 max-h-[70vh] w-[380px] shadow-xl">
-      <CardHeader className="pb-2">
+    <Card className="fixed right-4 bottom-4 z-50 flex max-h-[calc(100vh-2rem)] w-[min(420px,calc(100vw-1.5rem))] flex-col overflow-hidden shadow-xl">
+      <CardHeader className="shrink-0 pb-2">
         <div className="flex items-center justify-between gap-3">
           <div>
             <CardTitle className="text-sm">Jobs de candidature</CardTitle>
@@ -37,7 +37,7 @@ export function ApplyJobsTray({ jobs }: { jobs: ApplyJobView[] }) {
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 overflow-y-auto">
+      <CardContent className="space-y-3 overflow-y-auto pb-4">
         {visibleJobs.slice(0, 4).map((job) => (
           <ApplyJobCard key={job.id} job={job} compact />
         ))}

@@ -24,29 +24,36 @@ export function ApplyJobCard({
   const label = getApplyJobLabel(job);
   const percent = getApplyJobPercent(job);
   const events = job.events.slice(-4).reverse();
-  const title = job.offer
-    ? `${job.offer.company} · ${job.offer.title}`
-    : `Job ${job.id}`;
+  const offerTitle = job.offer?.title ?? `Job ${job.id}`;
+  const offerMeta = job.offer
+    ? [job.offer.company, job.offer.city].filter(Boolean).join(" · ")
+    : null;
 
   return (
     <Card size={compact ? "sm" : "default"}>
       <CardHeader className="gap-2">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="truncate">
-              {compact ? "Candidature auto" : title}
+          <div className="min-w-0 flex-1">
+            <CardTitle className={compact ? "line-clamp-2 text-sm leading-snug" : "line-clamp-2"}>
+              {offerTitle}
             </CardTitle>
-            <CardDescription className="truncate">
-              {compact ? title : `Derniere activite ${formatJobTime(job.updatedAt)}`}
+            <CardDescription className={compact ? "mt-1 line-clamp-2 text-xs" : "truncate"}>
+              {compact
+                ? offerMeta ?? `Derniere activite ${formatJobTime(job.updatedAt)}`
+                : offerMeta
+                  ? `${offerMeta} · Derniere activite ${formatJobTime(job.updatedAt)}`
+                  : `Derniere activite ${formatJobTime(job.updatedAt)}`}
             </CardDescription>
           </div>
-          <JobStatusBadge label={label} tone={tone} />
+          <div className="shrink-0">
+            <JobStatusBadge label={label} tone={tone} />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{job.lastMessage ?? label}</span>
+          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span className="min-w-0 flex-1 truncate">{job.lastMessage ?? label}</span>
             <span>{percent}%</span>
           </div>
           <ProgressBar value={percent} tone={tone} />
