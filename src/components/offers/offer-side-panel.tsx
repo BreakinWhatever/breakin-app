@@ -97,7 +97,9 @@ export function OfferSidePanel({
   const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
     new: { label: "Nouveau", variant: "default" },
     shortlisted: { label: "Shortlist", variant: "outline" },
+    apply_requested: { label: "En cours", variant: "outline" },
     applied: { label: "Postule", variant: "default" },
+    apply_failed: { label: "Echec", variant: "destructive" },
     ignored: { label: "Ignore", variant: "secondary" },
   };
   const sConfig = statusConfig[offer.status] || statusConfig.new;

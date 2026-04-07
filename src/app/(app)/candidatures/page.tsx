@@ -65,6 +65,7 @@ export default function CandidaturesPage() {
         label: "Source",
         options: [
           { label: "Manuel", value: "manual" },
+          { label: "Auto", value: "auto" },
           { label: "Scraping", value: "scraping" },
           { label: "Referral", value: "referral" },
           { label: "LinkedIn", value: "linkedin" },

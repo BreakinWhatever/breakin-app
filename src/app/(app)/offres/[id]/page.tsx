@@ -57,7 +57,9 @@ function ScoreDisplay({ score }: { score: number | null }) {
 const statusLabels: Record<string, string> = {
   new: "Nouveau",
   shortlisted: "Shortlist",
+  apply_requested: "En cours",
   applied: "Postule",
+  apply_failed: "Echec",
   ignored: "Ignore",
 };
 
@@ -100,8 +102,12 @@ export default function OfferDetailPage() {
     setApplying(true);
     const res = await fetch(`/api/offers/${offer.id}/apply`, { method: "POST" });
     if (res.ok) {
-      const updated = await res.json();
-      setOffer(updated);
+      const payload = await res.json();
+      if (payload?.offer) {
+        setOffer(payload.offer);
+      } else {
+        setOffer((prev) => prev ? { ...prev, status: "apply_requested" } : prev);
+      }
     }
     setApplying(false);
   };

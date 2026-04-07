@@ -48,7 +48,9 @@ function ScoreBadge({ score }: { score: number | null }) {
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; className?: string }> = {
   new: { label: "Nouveau", variant: "default" },
   shortlisted: { label: "Shortlist", variant: "outline", className: "border-blue-500 text-blue-600 dark:text-blue-400" },
+  apply_requested: { label: "En cours", variant: "outline", className: "border-amber-500 text-amber-600 dark:text-amber-400" },
   applied: { label: "Postule", variant: "default", className: "bg-emerald-500/10 text-emerald-600 border-transparent dark:text-emerald-400" },
+  apply_failed: { label: "Echec", variant: "destructive" },
   ignored: { label: "Ignore", variant: "secondary" },
 };
 

@@ -214,6 +214,7 @@ model JobOffer {
 
   companyRef   Company?      @relation(fields: [companyId], references: [id])
   applications Application[]
+  applyJobs    ApplyJob[]
 }
 
 model ScrapeRun {
@@ -248,6 +249,7 @@ model Application {
   offer       JobOffer?    @relation(fields: [offerId], references: [id])
   contact     Contact?     @relation(fields: [contactId], references: [id])
   coverLetter CoverLetter? @relation(fields: [coverLetterId], references: [id])
+  applyJobs   ApplyJob[]
 }
 
 model CoverLetter {
@@ -259,6 +261,49 @@ model CoverLetter {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   applications Application[]
+}
+
+model ApplyJob {
+  id               String    @id @default(cuid())
+  offerId          String
+  applicationId    String?
+  source           String    @default("site")
+  status           String    @default("queued")
+  language         String?
+  profileKey       String?
+  platform         String?
+  runtimePath      String?
+  input            Json?
+  summary          Json?
+  error            String?
+  lastMessage      String?
+  chatId           String?
+  replyToMessageId Int?
+  pid              Int?
+  createdAt        DateTime  @default(now())
+  startedAt        DateTime?
+  endedAt          DateTime?
+  updatedAt        DateTime  @updatedAt
+
+  offer       JobOffer      @relation(fields: [offerId], references: [id])
+  application Application?  @relation(fields: [applicationId], references: [id])
+  events      ApplyJobEvent[]
+
+  @@index([status, createdAt])
+  @@index([offerId, createdAt])
+}
+
+model ApplyJobEvent {
+  id        String   @id @default(cuid())
+  jobId     String
+  type      String
+  message   String
+  data      Json?
+  createdAt DateTime @default(now())
+
+  job ApplyJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
 }
 
 // --- SP7: Scheduled Recaps ---

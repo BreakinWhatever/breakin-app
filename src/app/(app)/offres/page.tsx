@@ -99,7 +99,9 @@ export default function OffresPage() {
         options: [
           { label: "Nouveau", value: "new" },
           { label: "Shortlist", value: "shortlisted" },
+          { label: "En cours", value: "apply_requested" },
           { label: "Postule", value: "applied" },
+          { label: "Echec", value: "apply_failed" },
           { label: "Ignore", value: "ignored" },
         ],
       },
@@ -158,33 +160,37 @@ export default function OffresPage() {
     }));
     setApplyQueue(queue);
 
-    for (let i = 0; i < queue.length; i++) {
-      setApplyQueue((prev) =>
-        prev.map((item, idx) =>
-          idx === i ? { ...item, status: "applying", message: "Candidature en cours..." } : item
-        )
-      );
+    setApplyQueue((prev) =>
+      prev.map((item) => ({ ...item, status: "applying", message: "Mise en file..." }))
+    );
 
-      try {
-        const res = await fetch(`/api/offers/${queue[i].offerId}/apply`, {
-          method: "POST",
-        });
-        if (!res.ok) throw new Error("Failed");
+    await Promise.all(
+      queue.map(async (item) => {
+        try {
+          const res = await fetch(`/api/offers/${item.offerId}/apply`, {
+            method: "POST",
+          });
+          if (!res.ok) throw new Error("Failed");
 
-        updateOfferStatus(queue[i].offerId, "apply_requested");
-        setApplyQueue((prev) =>
-          prev.map((item, idx) =>
-            idx === i ? { ...item, status: "done", message: "Lancee" } : item
-          )
-        );
-      } catch {
-        setApplyQueue((prev) =>
-          prev.map((item, idx) =>
-            idx === i ? { ...item, status: "error", message: "Erreur" } : item
-          )
-        );
-      }
-    }
+          updateOfferStatus(item.offerId, "apply_requested");
+          setApplyQueue((prev) =>
+            prev.map((current) =>
+              current.offerId === item.offerId
+                ? { ...current, status: "done", message: "En file" }
+                : current
+            )
+          );
+        } catch {
+          setApplyQueue((prev) =>
+            prev.map((current) =>
+              current.offerId === item.offerId
+                ? { ...current, status: "error", message: "Erreur" }
+                : current
+            )
+          );
+        }
+      })
+    );
 
     toast.success(`${queue.length} candidature(s) lancee(s)`);
   }

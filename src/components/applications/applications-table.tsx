@@ -38,6 +38,7 @@ export interface ApplicationRow {
 
 const sourceConfig: Record<string, string> = {
   manual: "Manuel",
+  auto: "Auto",
   scraping: "Scraping",
   referral: "Referral",
   linkedin: "LinkedIn",

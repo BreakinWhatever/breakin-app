@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
+import { retryApplyJob } from "@/lib/apply/service";
 import { createHmac } from "crypto";
-import { enqueueApplyJob } from "@/lib/apply/service";
 
 const VPS_WEBHOOK = "http://46.225.210.206:9000/hooks/apply-offer";
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET!;
@@ -18,7 +18,7 @@ async function triggerVPSApply(jobId: string, offerId: string) {
       "X-Hub-Signature-256": `sha256=${sig}`,
     },
     body: payload,
-  }).catch(() => {}); // never throw
+  }).catch(() => {});
 }
 
 export async function POST(
@@ -27,42 +27,30 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-
-    const queued = await enqueueApplyJob(process.cwd(), {
-      offerId: id,
-      source: "site",
-      llmProvider: "auto",
-    });
-
-    const offer = queued.offer;
+    const queued = await retryApplyJob(process.cwd(), id);
 
     if (!queued.job) {
       return Response.json(
-        {
-          offer,
-          applicationId: queued.applicationId,
-          reason: queued.reason,
-        },
-        { status: 200 }
+        { error: "Retry did not create a new apply job" },
+        { status: 409 }
       );
     }
 
-    if (queued.created) {
-      await triggerVPSApply(queued.job.id, offer.id);
-    }
+    await triggerVPSApply(queued.job.id, queued.offer.id);
 
     return Response.json(
       {
-        offer: { ...offer, status: "apply_requested" },
         jobId: queued.job.id,
         status: queued.job.status,
         pollUrl: `/api/apply-jobs/${queued.job.id}`,
-        reason: queued.reason,
       },
       { status: 202 }
     );
   } catch (error) {
-    console.error("POST /api/offers/[id]/apply error:", error);
-    return Response.json({ error: "Failed to trigger apply" }, { status: 500 });
+    console.error("POST /api/apply-jobs/[id]/retry error:", error);
+    return Response.json(
+      { error: "Failed to retry apply job" },
+      { status: 500 }
+    );
   }
 }

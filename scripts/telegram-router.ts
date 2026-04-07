@@ -33,6 +33,17 @@ import {
   parseTelegramSearchJobIntent,
   parseTelegramSearchIntent,
 } from "../src/lib/sourcing/telegram";
+import { enqueueApplyJob } from "../src/lib/apply/service";
+import { launchLocalApplyDispatcher } from "../src/lib/apply/launcher";
+import { listApplyJobRecords, readApplyJobRecord } from "../src/lib/apply/jobs";
+import {
+  formatApplyJobAcknowledgement,
+  formatApplyJobListForTelegram,
+  formatApplyJobStatusForTelegram,
+  parseTelegramApplyIntent,
+  parseTelegramApplyJobIntent,
+} from "../src/lib/apply/telegram";
+import type { ApplySummary } from "../src/lib/apply/types";
 
 interface TelegramChat {
   id: number;
@@ -367,6 +378,25 @@ async function handleMessage(
     return appendReplyToState(config, state, chatId, text, reply, "codex");
   }
 
+  const applyJobIntent = parseTelegramApplyJobIntent(text);
+  if (applyJobIntent) {
+    const reply = await handleApplyJobStatus(chatId, applyJobIntent.jobId, applyJobIntent.mode);
+    await sendMessage(config, message.chat.id, reply, message.message_id);
+    return appendReplyToState(config, state, chatId, text, reply, "codex");
+  }
+
+  const applyIntent = parseTelegramApplyIntent(text);
+  if (applyIntent) {
+    const reply = await startApplyJob(
+      config.workspaceDir,
+      chatId,
+      message.message_id,
+      applyIntent.offerIdOrUrl
+    );
+    await sendMessage(config, message.chat.id, reply, message.message_id);
+    return appendReplyToState(config, state, chatId, text, reply, "codex");
+  }
+
   const searchIntent = parseTelegramSearchIntent(text);
   if (searchIntent) {
     const reply = await startSearchJob(
@@ -508,6 +538,84 @@ async function handleSearchJobStatus(
   }
 
   return formatSearchJobStatusForTelegram(job);
+}
+
+async function startApplyJob(
+  workspaceDir: string,
+  chatId: string,
+  replyToMessageId: number,
+  offerIdOrUrl: string
+) {
+  const queued = await enqueueApplyJob(workspaceDir, {
+    offerId: offerIdOrUrl,
+    source: "telegram",
+    chatId,
+    replyToMessageId,
+    llmProvider: "auto",
+  });
+
+  if (!queued.offer) {
+    return "Offre introuvable.";
+  }
+
+  if (!queued.job) {
+    if (queued.reason === "already_applied") {
+      return `Cette offre est deja postulee.${queued.applicationId ? ` Application: ${queued.applicationId}` : ""}`;
+    }
+
+    return "Une candidature est deja en cours pour cette offre.";
+  }
+
+  if (!queued.created) {
+    return [
+      "Une candidature est deja en cours pour cette offre.",
+      formatApplyJobStatusForTelegram({
+        id: queued.job.id,
+        status: queued.job.status,
+        platform: queued.job.platform,
+        lastMessage: queued.job.lastMessage,
+        error: queued.job.error,
+        runtimePath: queued.job.runtimePath,
+        summary: (queued.job.summary as ApplySummary | null) ?? undefined,
+      }),
+    ].join("\n\n");
+  }
+
+  const launched = await launchLocalApplyDispatcher(workspaceDir, queued.job.id);
+  if (!launched.ok) {
+    return `La candidature n'a pas pu etre lancee.\n${launched.error}`;
+  }
+
+  return formatApplyJobAcknowledgement(queued.job.id);
+}
+
+async function handleApplyJobStatus(
+  chatId: string,
+  requestedJobId: string | undefined,
+  mode: "status" | "list"
+) {
+  if (mode === "list") {
+    const jobs = await listApplyJobRecords({ chatId, limit: 5 });
+    return formatApplyJobListForTelegram(jobs);
+  }
+
+  const job = requestedJobId
+    ? await readApplyJobRecord(requestedJobId)
+    : (await listApplyJobRecords({ chatId, limit: 1 }))[0] ?? null;
+
+  if (!job) {
+    return "Aucun job de candidature trouve pour ce chat.";
+  }
+
+  return formatApplyJobStatusForTelegram({
+    id: job.id,
+    status: job.status,
+    platform: job.platform,
+    lastMessage: job.lastMessage,
+    error: job.error,
+    runtimePath: job.runtimePath,
+    summary: (job.summary as ApplySummary | null) ?? undefined,
+  });
 }
 
 async function launchSearchJob(
