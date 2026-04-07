@@ -7,6 +7,7 @@ import {
   withinDays,
 } from "./filters";
 import type { ExtractedJob, HarvestContext } from "./types";
+import { buildWorkdayJobUrl } from "./workday";
 
 const DEFAULT_HEADERS = {
   Accept: "application/json, text/html;q=0.9",
@@ -80,9 +81,12 @@ async function fetchWorkdayJobs(
       const title = stringValue(posting.title);
       if (!externalPath || !title) continue;
 
-      const jobUrl = normalizeUrl(
-        `${origin}/wday/cxs/${workdayConfig.tenant}/${workdayConfig.site}/job/${externalPath}`
-      );
+      const jobUrl = buildWorkdayJobUrl({
+        origin,
+        tenant: workdayConfig.tenant,
+        site: workdayConfig.site,
+        externalPath,
+      });
       if (seen.has(jobUrl)) continue;
       seen.add(jobUrl);
 
