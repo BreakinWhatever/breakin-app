@@ -578,3 +578,5 @@ tg "❌ <b>Échec candidature</b>
 4. **Timeout 5 min max** per offer — si dépassé, fail proprement
 5. **Never apply twice** — vérifier status != "applied" avant de commencer
 6. **Fallback always** — si tout échoue, envoyer l'URL pour candidature manuelle sur TG
+
+<!-- watcher-ping: sync test 10:13:24 -->
