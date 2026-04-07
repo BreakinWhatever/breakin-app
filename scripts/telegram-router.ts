@@ -1,3 +1,4 @@
+import { closeSync, openSync } from "fs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "fs/promises";
 import { spawn } from "child_process";
 import path from "path";
@@ -13,10 +14,23 @@ import {
   type RouterAgent,
   type RouterState,
 } from "../src/lib/telegram-router";
-import { buildSearchCliArgs } from "../src/lib/sourcing/cli";
+import { buildSearchArgs } from "../src/lib/sourcing/cli";
 import {
-  formatSearchSummaryForTelegram,
-  parseSearchSummaryOutput,
+  buildSearchJobLogFile,
+  buildSearchJobOutputDir,
+  createEmptySearchProgress,
+  createSearchJobId,
+  createSearchJobRecord,
+  findActiveSearchJobForChat,
+  listSearchJobRecords,
+  readSearchJobRecord,
+  updateSearchJobRecord,
+} from "../src/lib/sourcing/jobs";
+import {
+  formatSearchJobAcknowledgement,
+  formatSearchJobListForTelegram,
+  formatSearchJobStatusForTelegram,
+  parseTelegramSearchJobIntent,
   parseTelegramSearchIntent,
 } from "../src/lib/sourcing/telegram";
 
@@ -341,37 +355,28 @@ async function handleMessage(
 
   await sendChatAction(config, message.chat.id, "typing").catch(() => {});
 
+  const searchJobIntent = parseTelegramSearchJobIntent(text);
+  if (searchJobIntent) {
+    const reply = await handleSearchJobStatus(
+      config,
+      chatId,
+      searchJobIntent.jobId,
+      searchJobIntent.mode
+    );
+    await sendMessage(config, message.chat.id, reply, message.message_id);
+    return appendReplyToState(config, state, chatId, text, reply, "codex");
+  }
+
   const searchIntent = parseTelegramSearchIntent(text);
   if (searchIntent) {
-    const searchResult = await runSearchPipeline(config, searchIntent.request);
-    const reply = searchResult.reply;
-
+    const reply = await startSearchJob(
+      config,
+      chatId,
+      message.message_id,
+      searchIntent.request
+    );
     await sendMessage(config, message.chat.id, reply, message.message_id);
-
-    let nextState = appendHistory(
-      state,
-      chatId,
-      {
-        role: "user",
-        text,
-        at: new Date().toISOString(),
-      },
-      config.maxHistoryTurns
-    );
-
-    nextState = appendHistory(
-      nextState,
-      chatId,
-      {
-        role: "assistant",
-        text: reply,
-        at: new Date().toISOString(),
-        agent: "codex",
-      },
-      config.maxHistoryTurns
-    );
-
-    return nextState;
+    return appendReplyToState(config, state, chatId, text, reply, "codex");
   }
 
   const prompt = buildAgentPrompt({
@@ -405,13 +410,167 @@ async function handleMessage(
   }
 
   await sendMessage(config, message.chat.id, reply, message.message_id);
+  return appendReplyToState(config, state, chatId, text, reply, replyAgent);
+}
 
+async function startSearchJob(
+  config: RuntimeConfig,
+  chatId: string,
+  replyToMessageId: number,
+  request: Record<string, unknown>
+) {
+  const activeJob = await findActiveSearchJobForChat(config.workspaceDir, chatId);
+  if (activeJob) {
+    return [
+      "Une recherche est deja en cours.",
+      "",
+      formatSearchJobStatusForTelegram(activeJob),
+    ].join("\n");
+  }
+
+  const jobId = createSearchJobId();
+  const outputDir = buildSearchJobOutputDir(config.workspaceDir, jobId);
+  const job = await createSearchJobRecord(config.workspaceDir, {
+    jobId,
+    chatId,
+    replyToMessageId,
+    status: "queued",
+    createdAt: new Date().toISOString(),
+    launcher: "detached",
+    outputDir,
+    logFile: buildSearchJobLogFile(config.workspaceDir, jobId),
+    request: {
+      ...request,
+      source: "telegram",
+      outputDir,
+    },
+    progress: createEmptySearchProgress(),
+  });
+
+  const launched = await launchSearchJob(config, jobId, Number(chatId), replyToMessageId, {
+    ...request,
+    source: "telegram",
+    outputDir,
+  });
+
+  if (!launched.ok) {
+    const failed = await updateSearchJobRecord(config.workspaceDir, jobId, {
+      status: "failed",
+      endedAt: new Date().toISOString(),
+      error: launched.error,
+      progress: {
+        ...createEmptySearchProgress(),
+        phase: "failed",
+        updatedAt: new Date().toISOString(),
+        message: launched.error,
+      },
+    });
+
+    return failed
+      ? formatSearchJobStatusForTelegram(failed)
+      : `La recherche d'offres a echoue au lancement.\n${launched.error}`;
+  }
+
+  await updateSearchJobRecord(config.workspaceDir, jobId, {
+    status: "running",
+    startedAt: new Date().toISOString(),
+    pid: launched.pid ?? undefined,
+    progress: {
+      ...createEmptySearchProgress(),
+      phase: "starting",
+      updatedAt: new Date().toISOString(),
+      message: "Worker de recherche lance",
+    },
+  });
+
+  return formatSearchJobAcknowledgement(job);
+}
+
+async function handleSearchJobStatus(
+  config: RuntimeConfig,
+  chatId: string,
+  requestedJobId: string | undefined,
+  mode: "status" | "list"
+) {
+  if (mode === "list") {
+    const jobs = await listSearchJobRecords(config.workspaceDir, { chatId, limit: 5 });
+    return formatSearchJobListForTelegram(jobs);
+  }
+
+  const job = requestedJobId
+    ? await readSearchJobRecord(config.workspaceDir, requestedJobId)
+    : await findActiveSearchJobForChat(config.workspaceDir, chatId)
+      ?? (await listSearchJobRecords(config.workspaceDir, { chatId, limit: 1 }))[0]
+      ?? null;
+
+  if (!job) {
+    return "Aucun job de recherche trouve pour ce chat.";
+  }
+
+  return formatSearchJobStatusForTelegram(job);
+}
+
+async function launchSearchJob(
+  config: RuntimeConfig,
+  jobId: string,
+  chatId: number,
+  replyToMessageId: number,
+  request: Record<string, unknown>
+) {
+  const logFile = buildSearchJobLogFile(config.workspaceDir, jobId);
+  await mkdir(path.dirname(logFile), { recursive: true });
+
+  const stdoutFd = openSync(logFile, "a");
+  const stderrFd = openSync(logFile, "a");
+  const args = [
+    "tsx",
+    "scripts/telegram-search-job.ts",
+    "--job-id",
+    jobId,
+    "--chat-id",
+    String(chatId),
+    "--reply-to-message-id",
+    String(replyToMessageId),
+    ...buildSearchArgs(request),
+  ];
+
+  try {
+    const child = spawn(config.searchCliBin, args, {
+      cwd: config.workspaceDir,
+      env: process.env,
+      detached: true,
+      stdio: ["ignore", stdoutFd, stderrFd],
+    });
+    child.unref();
+    return {
+      ok: true,
+      pid: child.pid ?? null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    closeSync(stdoutFd);
+    closeSync(stderrFd);
+  }
+}
+
+function appendReplyToState(
+  config: RuntimeConfig,
+  state: RouterState,
+  chatId: string,
+  userText: string,
+  reply: string,
+  agent: RouterAgent
+) {
   let nextState = appendHistory(
     state,
     chatId,
     {
       role: "user",
-      text,
+      text: userText,
       at: new Date().toISOString(),
     },
     config.maxHistoryTurns
@@ -424,54 +583,12 @@ async function handleMessage(
       role: "assistant",
       text: reply,
       at: new Date().toISOString(),
-      agent: replyAgent,
+      agent,
     },
     config.maxHistoryTurns
   );
 
   return nextState;
-}
-
-async function runSearchPipeline(
-  config: RuntimeConfig,
-  request: Record<string, unknown>
-) {
-  const outputDir = path.join(
-    config.workspaceDir,
-    ".runtime",
-    "source-offers",
-    `telegram-${Date.now()}`
-  );
-  const args = buildSearchCliArgs({
-    ...request,
-    source: "telegram",
-    outputDir,
-  });
-
-  const result = await runCliCommand(
-    config.searchCliBin,
-    args,
-    config.workspaceDir,
-    config.searchTimeoutMs
-  );
-  const summary = parseSearchSummaryOutput(result.stdout);
-
-  if (result.ok && summary) {
-    return { reply: formatSearchSummaryForTelegram(summary) };
-  }
-
-  const details = normalizeAgentOutput(
-    [result.stderr, result.stdout, result.error]
-      .filter(Boolean)
-      .join("\n"),
-    1500
-  );
-
-  return {
-    reply: details
-      ? `La recherche d'offres a echoue.\n${details}`
-      : "La recherche d'offres a echoue. Verifie le pipeline de sourcing sur le VPS.",
-  };
 }
 
 async function main(): Promise<void> {

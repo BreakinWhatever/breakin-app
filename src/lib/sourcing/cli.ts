@@ -69,7 +69,11 @@ export function parseSearchCliArgs(
 }
 
 export function buildSearchCliArgs(request: Partial<SearchOffersInput>) {
-  const args = ["tsx", "scripts/source-offers.ts", "search"];
+  return ["tsx", "scripts/source-offers.ts", ...buildSearchArgs(request)];
+}
+
+export function buildSearchArgs(request: Partial<SearchOffersInput>) {
+  const args = ["search"];
 
   pushListArg(args, "kw", request.keywords);
   pushListArg(args, "cities", request.cities);

@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatSearchJobAcknowledgement,
+  formatSearchJobStatusForTelegram,
   formatSearchSummaryForTelegram,
+  parseTelegramSearchJobIntent,
   parseSearchSummaryOutput,
   parseTelegramSearchIntent,
 } from "@/lib/sourcing/telegram";
 import { formatSearchSummaryForStdout } from "@/lib/sourcing/cli";
+import { createEmptySearchProgress } from "@/lib/sourcing/jobs";
 
 describe("sourcing telegram helpers", () => {
   it("parses strict /search_offers commands", () => {
@@ -121,5 +125,42 @@ describe("sourcing telegram helpers", () => {
 
     expect(parsed?.offersImported).toBe(1);
     expect(parsed?.artifacts.outputDir).toBe("/tmp/search");
+  });
+
+  it("parses search status intents", () => {
+    expect(parseTelegramSearchJobIntent("/search_jobs")).toEqual({ mode: "list" });
+    expect(parseTelegramSearchJobIntent("où en est la recherche")).toEqual({
+      mode: "status",
+      jobId: undefined,
+    });
+    expect(parseTelegramSearchJobIntent("/search_status search-abc-123")).toEqual({
+      mode: "status",
+      jobId: "search-abc-123",
+    });
+  });
+
+  it("formats background job messages", () => {
+    const job = {
+      jobId: "search-abc-123",
+      chatId: "42",
+      status: "running" as const,
+      createdAt: "2026-04-07T12:00:00.000Z",
+      launcher: "detached" as const,
+      outputDir: "/tmp/search-job",
+      logFile: "/tmp/search-job.log",
+      request: {},
+      progress: {
+        ...createEmptySearchProgress(new Date("2026-04-07T12:00:00.000Z")),
+        phase: "crawling" as const,
+        companiesConsidered: 10,
+        companiesScraped: 4,
+        pagesVisited: 12,
+        offersFound: 18,
+        currentCompany: "Ardian",
+      },
+    };
+
+    expect(formatSearchJobAcknowledgement(job)).toContain("search-abc-123");
+    expect(formatSearchJobStatusForTelegram(job)).toContain("Ardian");
   });
 });

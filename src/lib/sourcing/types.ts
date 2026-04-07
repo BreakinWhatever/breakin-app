@@ -1,6 +1,16 @@
 import type { CandidatePage, CrawlRequest } from "@/lib/crawler/types";
 import type { LlmProvider } from "@/lib/scoring/llm";
 
+export type SearchPhase =
+  | "queued"
+  | "starting"
+  | "loading_companies"
+  | "crawling"
+  | "scoring"
+  | "importing"
+  | "completed"
+  | "failed";
+
 export interface SearchOffersInput {
   keywords: string[];
   cities: string[];
@@ -17,6 +27,23 @@ export interface SearchOffersInput {
   storageDir: string;
   source: string;
   limitCompanies?: number;
+}
+
+export interface SearchProgress {
+  phase: SearchPhase;
+  updatedAt: string;
+  message?: string;
+  scrapeRunId?: string | null;
+  companiesConsidered: number;
+  companiesScraped: number;
+  pagesVisited: number;
+  pagesWithErrors: number;
+  offersFound: number;
+  offersScored: number;
+  offersImported: number;
+  llmAssistedOffers: number;
+  currentCompany?: string;
+  currentPageUrl?: string;
 }
 
 export interface PersistableOffer {
@@ -82,3 +109,6 @@ export interface SearchSummary {
   artifacts: SearchArtifacts;
 }
 
+export interface SearchRunHooks {
+  onProgress?: (progress: SearchProgress) => Promise<void> | void;
+}

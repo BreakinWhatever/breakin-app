@@ -20,6 +20,8 @@ import type {
   PageAttempt,
   PersistableOffer,
   SearchOffersInput,
+  SearchProgress,
+  SearchRunHooks,
   SearchSummary,
 } from "./types";
 
@@ -30,7 +32,10 @@ interface CrawlUserData {
   query?: string;
 }
 
-export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSummary> {
+export async function runOfferSearch(
+  input: SearchOffersInput,
+  hooks: SearchRunHooks = {}
+): Promise<SearchSummary> {
   const startedAt = new Date();
   const request = buildCrawlRequest(input);
   const artifacts = {
@@ -66,8 +71,30 @@ export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSu
   const scrapedCompanyIds = new Set<string>();
   const expandedCompanies = new Set<string>();
   let scrapeRunId: string | null = null;
+  const progress: SearchProgress = {
+    phase: "starting",
+    updatedAt: startedAt.toISOString(),
+    companiesConsidered: 0,
+    companiesScraped: 0,
+    pagesVisited: 0,
+    pagesWithErrors: 0,
+    offersFound: 0,
+    offersScored: 0,
+    offersImported: 0,
+    llmAssistedOffers: 0,
+  };
+
+  const emitProgress = async (patch: Partial<SearchProgress>) => {
+    Object.assign(progress, patch, { updatedAt: new Date().toISOString() });
+    await hooks.onProgress?.({ ...progress });
+  };
 
   try {
+    await emitProgress({
+      phase: "loading_companies",
+      message: "Chargement des societes actives",
+    });
+
     const run = await prisma.scrapeRun.create({
       data: {
         source: buildRunSource(input, request),
@@ -75,6 +102,16 @@ export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSu
       },
     });
     scrapeRunId = run.id;
+    await emitProgress({
+      scrapeRunId,
+      message: "ScrapeRun cree",
+    });
+
+    await emitProgress({
+      phase: "crawling",
+      companiesConsidered: companies.length,
+      message: `${companies.length} societes a traiter`,
+    });
 
     for (const company of companies) {
       if (company.careerUrl) {
@@ -140,6 +177,17 @@ export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSu
             status: "ok",
           };
           attempts.push(attempt);
+          await emitProgress({
+            phase: "crawling",
+            companiesConsidered: companies.length,
+            companiesScraped: scrapedCompanyIds.size,
+            pagesVisited: attempts.length,
+            pagesWithErrors: attempts.filter((item) => item.status === "error").length,
+            offersFound: offerMap.size,
+            currentCompany: company.name,
+            currentPageUrl: pageUrl,
+            message: `${company.name}: ${accepted} offres retenues`,
+          });
           await dataset.pushData({
             ...attempt,
             query: query ?? null,
@@ -156,6 +204,17 @@ export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSu
             error: message,
           });
           errors.push(`${company.name}: ${message}`);
+          await emitProgress({
+            phase: "crawling",
+            companiesConsidered: companies.length,
+            companiesScraped: scrapedCompanyIds.size,
+            pagesVisited: attempts.length,
+            pagesWithErrors: attempts.filter((item) => item.status === "error").length,
+            offersFound: offerMap.size,
+            currentCompany: company.name,
+            currentPageUrl: pageUrl,
+            message: `${company.name}: erreur`,
+          });
           await dataset.pushData({
             companyId: company.id,
             company: company.name,
@@ -180,6 +239,17 @@ export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSu
           error: message,
         });
         errors.push(`${userData.company.name}: ${message}`);
+        await emitProgress({
+          phase: "crawling",
+          companiesConsidered: companies.length,
+          companiesScraped: scrapedCompanyIds.size,
+          pagesVisited: attempts.length,
+          pagesWithErrors: attempts.filter((item) => item.status === "error").length,
+          offersFound: offerMap.size,
+          currentCompany: userData.company.name,
+          currentPageUrl: userData.pageUrl,
+          message: `${userData.company.name}: echec final`,
+        });
       },
     }, crawlConfig);
 
@@ -193,7 +263,29 @@ export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSu
       })
       .slice(0, request.max);
 
+    await emitProgress({
+      phase: "scoring",
+      companiesConsidered: companies.length,
+      companiesScraped: scrapedCompanyIds.size,
+      pagesVisited: attempts.length,
+      pagesWithErrors: attempts.filter((attempt) => attempt.status === "error").length,
+      offersFound: discoveredOffers.length,
+      message: `Scoring de ${discoveredOffers.length} offres`,
+    });
+
     const scoredOffers = await scoreOffers(discoveredOffers, input, request);
+    const llmAssistedOffers = scoredOffers.filter((offer) => offer.llmUsed).length;
+    await emitProgress({
+      phase: "importing",
+      companiesConsidered: companies.length,
+      companiesScraped: scrapedCompanyIds.size,
+      pagesVisited: attempts.length,
+      pagesWithErrors: attempts.filter((attempt) => attempt.status === "error").length,
+      offersFound: scoredOffers.length,
+      offersScored: input.score ? scoredOffers.length : 0,
+      llmAssistedOffers,
+      message: input.importToDb ? "Import des offres" : "Dry run termine",
+    });
     const persistence = input.importToDb
       ? await persistOffers(scoredOffers)
       : { created: 0, updated: 0, skipped: scoredOffers.length };
@@ -219,7 +311,7 @@ export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSu
       offersUpdated: persistence.updated,
       offersSkipped: persistence.skipped,
       offersScored: input.score ? scoredOffers.length : 0,
-      llmAssistedOffers: scoredOffers.filter((offer) => offer.llmUsed).length,
+      llmAssistedOffers,
       startedAt: startedAt.toISOString(),
       endedAt: endedAt.toISOString(),
       topOffers: scoredOffers.slice(0, 5).map((offer) => ({
@@ -235,6 +327,18 @@ export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSu
     };
 
     await writeArtifacts(artifacts.outputDir, summary, scoredOffers);
+    await emitProgress({
+      phase: "completed",
+      companiesConsidered: companies.length,
+      companiesScraped: scrapedCompanyIds.size,
+      pagesVisited: attempts.length,
+      pagesWithErrors: attempts.filter((attempt) => attempt.status === "error").length,
+      offersFound: scoredOffers.length,
+      offersScored: summary.offersScored,
+      offersImported: persistence.created,
+      llmAssistedOffers,
+      message: "Recherche terminee",
+    });
 
     if (scrapeRunId) {
       await prisma.scrapeRun.update({
@@ -261,6 +365,11 @@ export async function runOfferSearch(input: SearchOffersInput): Promise<SearchSu
         },
       }).catch(() => {});
     }
+    await emitProgress({
+      phase: "failed",
+      scrapeRunId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }
