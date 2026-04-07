@@ -1,5 +1,6 @@
+import { accessSync, constants as fsConstants } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import type { JobOffer } from "@/generated/prisma/client";
@@ -254,10 +255,27 @@ async function runCodex(prompt: string, cwd: string) {
 }
 
 function binaryExists(bin: string) {
-  const result = spawnSync("bash", ["-lc", `command -v ${bin}`], {
-    stdio: "ignore",
-  });
-  return result.status === 0;
+  if (!bin.trim()) return false;
+
+  const pathEntries = (process.env.PATH ?? "")
+    .split(":")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  const candidates = bin.includes("/")
+    ? [bin]
+    : pathEntries.map((entry) => path.join(entry, bin));
+
+  return candidates.some((candidate) => canExecute(candidate));
+}
+
+function canExecute(candidate: string) {
+  try {
+    accessSync(candidate, fsConstants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function parseJsonObject(value: string | null) {

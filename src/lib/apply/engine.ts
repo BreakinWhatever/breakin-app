@@ -1,4 +1,5 @@
 import path from "node:path";
+import { mkdir } from "node:fs/promises";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import type { LlmProvider } from "@/lib/scoring/llm";
@@ -367,6 +368,8 @@ async function runBrowserAttempt(input: {
     `attempt-${String(input.attempt).padStart(2, "0")}.png`
   );
 
+  await mkdir(artifacts.screenshotDir, { recursive: true });
+
   await emitProgress(
     input.jobId,
     {
@@ -405,6 +408,7 @@ async function runBrowserAttempt(input: {
       {
         message: result.message,
         currentUrl: result.currentUrl,
+        pageTextSnippet: result.pageTextSnippet,
         questions: result.questions ?? [],
         screenshotPath,
       } as unknown as Prisma.InputJsonValue

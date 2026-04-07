@@ -58,7 +58,13 @@ async function main() {
     for (const job of jobs.slice(0, availableSlots)) {
       const claimed = await claimQueuedApplyJob(job.id);
       if (!claimed) continue;
-      await launchJobWorker(workspaceDir, job.id);
+      await launchJobWorker(
+        workspaceDir,
+        job.id,
+        buildApplyJobArtifacts,
+        updateApplyJobRecord,
+        appendApplyJobEvent
+      );
     }
   } finally {
     closeSync(lockFd);
@@ -66,7 +72,20 @@ async function main() {
   }
 }
 
-async function launchJobWorker(workspaceDir: string, jobId: string) {
+async function launchJobWorker(
+  workspaceDir: string,
+  jobId: string,
+  buildApplyJobArtifacts: (workspaceDir: string, jobId: string) => {
+    runtimeDir: string;
+    summaryFile: string;
+    resultFile: string;
+    stateFile: string;
+    logFile: string;
+    screenshotDir: string;
+  },
+  updateApplyJobRecord: (...args: any[]) => Promise<unknown>,
+  appendApplyJobEvent: (...args: any[]) => Promise<void>
+) {
   const artifacts = buildApplyJobArtifacts(workspaceDir, jobId);
   await mkdir(path.dirname(artifacts.logFile), { recursive: true });
 
