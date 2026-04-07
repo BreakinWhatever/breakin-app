@@ -2,60 +2,106 @@ import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 import { detectContractType } from "@/lib/offers";
 
+type IncomingOffer = {
+  title: string;
+  company: string;
+  companyId?: string | null;
+  city: string;
+  country?: string | null;
+  contractType?: string | null;
+  description: string;
+  url: string;
+  source: string;
+  salary?: string | null;
+  postedAt?: string | Date | null;
+  matchScore?: number | null;
+  matchAnalysis?: string | null;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { offers, scrapeRunId } = body;
+    const offers: IncomingOffer[] = body?.offers ?? body; // allow raw array for convenience
+    const scrapeRunId: string | undefined = body?.scrapeRunId ?? undefined;
 
-    if (!offers || !Array.isArray(offers) || offers.length === 0) {
+    if (!Array.isArray(offers) || offers.length === 0) {
       return Response.json(
-        { error: "offers array is required" },
+        { error: "Body must contain non-empty 'offers' array" },
         { status: 400 }
       );
     }
 
-    // Deduplicate: fetch existing URLs
-    const incomingUrls = offers.map((o: { url: string }) => o.url);
+    // Dedup by URL (DB has unique constraint)
+    const urls = offers.map((o) => o.url).filter(Boolean);
     const existing = await prisma.jobOffer.findMany({
-      where: { url: { in: incomingUrls } },
-      select: { url: true },
+      where: { url: { in: urls } },
+      select: { id: true, url: true },
     });
-    const existingUrls = new Set(existing.map((e) => e.url));
+    const existingSet = new Set(existing.map((e) => e.url));
 
-    const newOffers = offers.filter(
-      (o: { url: string }) => !existingUrls.has(o.url)
-    );
-    const duplicates = offers.length - newOffers.length;
-
-    // Bulk create
-    if (newOffers.length > 0) {
-      await prisma.jobOffer.createMany({
-        data: newOffers.map(
-          (o: {
-            title: string;
-            company: string;
-            city: string;
-            country?: string;
-            contractType?: string;
-            description: string;
-            url: string;
-            source: string;
-            salary?: string;
-            postedAt?: string;
-          }) => ({
-            title: o.title,
-            company: o.company,
-            city: o.city,
-            country: o.country ?? "France",
-            contractType: detectContractType(o.title, o.description, o.contractType),
-            description: o.description,
-            url: o.url,
-            source: o.source,
-            salary: o.salary ?? null,
-            postedAt: o.postedAt ? new Date(o.postedAt) : null,
-          })
-        ),
+    const now = new Date();
+    const toCreate = offers
+      .filter((o) => !existingSet.has(o.url))
+      .map((o) => {
+        const country = o.country ?? "France";
+        const contract = (o.contractType && o.contractType.trim())
+          ? o.contractType
+          : detectContractType(o.title ?? "", o.description ?? "", undefined);
+        const posted = o.postedAt
+          ? new Date(o.postedAt)
+          : null;
+        return {
+          title: o.title,
+          company: o.company,
+          companyId: o.companyId ?? null,
+          city: o.city,
+          country,
+          contractType: contract,
+          description: o.description,
+          url: o.url,
+          source: o.source,
+          salary: o.salary ?? null,
+          matchScore: o.matchScore ?? null,
+          matchAnalysis: o.matchAnalysis ?? null,
+          postedAt: posted,
+          scrapedAt: now,
+        };
       });
+
+    // Create new offers
+    let createdCount = 0;
+    if (toCreate.length > 0) {
+      const result = await prisma.jobOffer.createMany({
+        data: toCreate,
+        skipDuplicates: true,
+      });
+      createdCount = result.count;
+    }
+
+    // Optional: light update of existing entries (refresh description/postedAt if provided)
+    const toUpdate = offers.filter((o) => existingSet.has(o.url));
+    for (const o of toUpdate) {
+      const data: Record<string, unknown> = {};
+      if (o.title) data.title = o.title;
+      if (o.company) data.company = o.company;
+      if (o.companyId !== undefined) data.companyId = o.companyId ?? null;
+      if (o.city) data.city = o.city;
+      if (o.country) data.country = o.country;
+      if (o.description) data.description = o.description;
+      if (o.salary !== undefined) data.salary = o.salary ?? null;
+      if (o.source) data.source = o.source;
+      if (o.contractType || (o.title && o.description)) {
+        data.contractType = (o.contractType && o.contractType.trim())
+          ? o.contractType
+          : detectContractType(o.title ?? "", o.description ?? "", undefined);
+      }
+      if (o.matchScore !== undefined) data.matchScore = o.matchScore;
+      if (o.matchAnalysis !== undefined) data.matchAnalysis = o.matchAnalysis;
+      if (o.postedAt !== undefined) data.postedAt = o.postedAt ? new Date(o.postedAt) : null;
+
+      if (Object.keys(data).length > 0) {
+        await prisma.jobOffer.update({ where: { url: o.url }, data });
+      }
     }
 
     // Update ScrapeRun if provided
@@ -64,17 +110,18 @@ export async function POST(request: NextRequest) {
         where: { id: scrapeRunId },
         data: {
           jobsFound: offers.length,
-          jobsNew: newOffers.length,
+          jobsNew: createdCount,
           status: "completed",
           endedAt: new Date(),
         },
-      });
+      }).catch(() => {});
     }
 
     return Response.json({
-      imported: newOffers.length,
-      duplicates,
       total: offers.length,
+      created: createdCount,
+      updated: toUpdate.length,
+      skipped: offers.length - createdCount - toUpdate.length,
     });
   } catch (error) {
     console.error("POST /api/offers/import error:", error);
@@ -84,3 +131,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

@@ -8,29 +8,27 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json();
+    const { matchScore, matchAnalysis } = body ?? {};
 
-    const { score, analysis } = body;
-    if (score === undefined || analysis === undefined) {
+    if (typeof matchScore !== "number" && typeof matchAnalysis !== "string") {
       return Response.json(
-        { error: "score and analysis are required" },
+        { error: "Provide matchScore (number) and/or matchAnalysis (string)" },
         { status: 400 }
       );
     }
 
-    const offer = await prisma.jobOffer.update({
-      where: { id },
-      data: {
-        matchScore: score,
-        matchAnalysis: analysis,
-      },
-    });
+    const data: Record<string, unknown> = {};
+    if (typeof matchScore === "number") data.matchScore = Math.round(matchScore);
+    if (typeof matchAnalysis === "string") data.matchAnalysis = matchAnalysis;
 
+    const offer = await prisma.jobOffer.update({ where: { id }, data });
     return Response.json(offer);
   } catch (error) {
     console.error("POST /api/offers/[id]/score error:", error);
     return Response.json(
-      { error: "Failed to score offer" },
+      { error: "Failed to update score" },
       { status: 500 }
     );
   }
 }
+

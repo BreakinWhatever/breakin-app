@@ -586,3 +586,17 @@ tg "❌ <b>Échec candidature</b>
 <!-- watcher-ping: desktop path test 10:16:52 -->
 
 <!-- watcher-ping: desktop retest 10:17:38 -->
+
+## SessionStart (Claude Code bootstrap)
+
+1) Read context files in this order (best-effort):
+- ~/wiki/wiki/index.md — navigation map
+- ~/wiki/wiki/KB_INBOX.md — latest decisions/notes
+- ~/wiki/wiki/hot-Candidatures.md — hot cache for this project
+- /Users/ousmane/Desktop/Candidatures/breakin/AGENT.md or CLAUDE.md — current brief (pick the one that exists)
+
+2) If any file is missing or unavailable, continue with the others; do not block.
+
+3) After actions, append a short recap to:
+- ~/wiki/wiki/hot-Candidatures.md (decisions, todos)
+- /Users/ousmane/Desktop/Candidatures/breakin/AGENT.md or CLAUDE.md (what changed, next steps)
