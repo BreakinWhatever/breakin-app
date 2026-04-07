@@ -25,6 +25,7 @@ export default function OffresPage() {
     contractType: "",
     source: "",
     status: "",
+    minScore: "50",
   });
 
   // Side panel
@@ -41,6 +42,9 @@ export default function OffresPage() {
     if (activeFilters.contractType) params.set("contractType", activeFilters.contractType);
     if (activeFilters.source) params.set("source", activeFilters.source);
     if (activeFilters.status) params.set("status", activeFilters.status);
+    if (activeFilters.minScore && activeFilters.minScore !== "all") {
+      params.set("minScore", activeFilters.minScore);
+    }
     const qs = params.toString();
 
     fetch(`/api/offers${qs ? `?${qs}` : ""}`)
@@ -58,6 +62,16 @@ export default function OffresPage() {
   // Filter config
   const filterConfigs: FilterConfig[] = useMemo(
     () => [
+      {
+        key: "minScore",
+        label: "Score",
+        options: [
+          { label: "Recommandees (50+)", value: "50" },
+          { label: "Fortes (70+)", value: "70" },
+          { label: "Toutes scorees (0+)", value: "0" },
+          { label: "Toutes", value: "all" },
+        ],
+      },
       {
         key: "city",
         label: "Ville",
@@ -136,7 +150,13 @@ export default function OffresPage() {
 
   const handleClearFilters = () => {
     setSearch("");
-    setActiveFilters({ city: "", contractType: "", source: "", status: "" });
+    setActiveFilters({
+      city: "",
+      contractType: "",
+      source: "",
+      status: "",
+      minScore: "50",
+    });
   };
 
   // Update offer status locally (instant UI update)
