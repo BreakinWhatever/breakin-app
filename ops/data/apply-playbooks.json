@@ -3,6 +3,54 @@
   "playbooks": [
     {
       "key": "apply/workday-auth",
+      "title": "Workday Auth Branching (Ares override)",
+      "platforms": ["workday"],
+      "hosts": ["aresmgmt.wd1.myworkdayjobs.com"],
+      "flowKeys": ["*"],
+      "authMode": "auth_required",
+      "defaultAuthBranch": "existing_account_sign_in",
+      "checkpointHints": ["auth_branch", "blocking_reason", "required_fields"],
+      "requiredFieldGroups": ["auth", "identity", "resume"],
+      "buttonHints": {
+        "apply": ["apply", "easy apply", "apply now", "submit application", "postuler"],
+        "manual": ["use my last application", "manual", "apply manually"],
+        "guest": ["continue as guest", "apply as guest", "guest", "invite"],
+        "next": ["continue", "next", "suivant"],
+        "review": ["review", "preview"],
+        "submit": ["submit", "apply now", "send application", "envoyer", "soumettre"],
+        "createAccount": ["create account", "create profile", "register", "sign up", "creer un compte"],
+        "login": ["sign in", "log in", "login", "connexion"]
+      },
+      "fieldHints": {
+        "email": ["email", "email address", "e-mail"],
+        "password": ["password", "new password", "mot de passe"],
+        "confirmPassword": ["verify new password", "confirm password", "confirm your password", "verify password", "confirmer le mot de passe"]
+      },
+      "successHints": ["my information", "my experience", "application questions", "resume/cv", "review", "thank you", "application received"],
+      "verificationHints": ["verify your email", "verification code", "confirm your email", "check your email"],
+      "errorHints": ["captcha", "robot", "verification required", "invalid file", "try again"],
+      "authBranchRules": [
+        {
+          "branch": "existing_account_sign_in",
+          "priority": 120,
+          "whenAnyButtonTextMatches": ["sign in", "log in", "connexion"],
+          "whenAnyAuthSignalMatches": ["sign in", "password"],
+          "whenAnyFieldLabelMatches": ["email", "password"]
+        },
+        {
+          "branch": "create_account",
+          "priority": 70,
+          "whenAnyButtonTextMatches": ["create account", "create profile", "register", "sign up"],
+          "whenAnyFieldLabelMatches": ["verify new password", "confirm password", "new password"]
+        }
+      ],
+      "nextActions": {
+        "existing_account_sign_in": "Open Sign In immediately, fill email and password, submit, then wait for My Information or the next application step.",
+        "create_account": "Only create a new Workday account if the Sign In branch is unavailable or fails with a clear account-missing signal."
+      }
+    },
+    {
+      "key": "apply/workday-auth",
       "title": "Workday Auth Branching",
       "platforms": ["workday"],
       "hosts": ["*"],

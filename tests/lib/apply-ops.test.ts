@@ -49,4 +49,20 @@ describe("apply ops integration", () => {
 
     expect(answer).toBe("LinkedIn");
   });
+
+  it("uses the Ares host override to prefer sign in without observation", async () => {
+    const plan = buildApplyExecutionPlan("workday", "en-us/external/job/analyst--direct-lending-r:id-1");
+    const resolved = await resolveApplyOpsPlan({
+      workspaceDir: process.cwd(),
+      host: "aresmgmt.wd1.myworkdayjobs.com",
+      flowKey: "en-us/external/job/analyst--direct-lending-r:id-1",
+      platform: "workday",
+      plan,
+    });
+
+    expect(resolved.plan.authMode).toBe("auth_required");
+    expect(resolved.plan.authBranch).toBe("existing_account_sign_in");
+    expect(resolved.authBranch).toBe("existing_account_sign_in");
+    expect(resolved.plan.playbookKey).toBe("apply/workday-auth");
+  });
 });
