@@ -26,6 +26,7 @@ import {
   readSearchJobRecord,
   updateSearchJobRecord,
 } from "../src/lib/sourcing/jobs";
+import { buildSearchCheckpoint } from "../src/lib/ops/checkpoints";
 import {
   formatSearchJobAcknowledgement,
   formatSearchJobListForTelegram,
@@ -36,6 +37,7 @@ import {
 import { enqueueApplyJob } from "../src/lib/apply/service";
 import { launchLocalApplyDispatcher } from "../src/lib/apply/launcher";
 import { listApplyJobRecords, readApplyJobRecord } from "../src/lib/apply/jobs";
+import { serializeApplyJob } from "../src/lib/apply/payloads";
 import {
   formatApplyJobAcknowledgement,
   formatApplyJobListForTelegram,
@@ -43,7 +45,6 @@ import {
   parseTelegramApplyIntent,
   parseTelegramApplyJobIntent,
 } from "../src/lib/apply/telegram";
-import type { ApplySummary } from "../src/lib/apply/types";
 
 interface TelegramChat {
   id: number;
@@ -475,6 +476,7 @@ async function startSearchJob(
       outputDir,
     },
     progress: createEmptySearchProgress(),
+    checkpoint: buildSearchCheckpoint(createEmptySearchProgress()),
   });
 
   const launched = await launchSearchJob(config, jobId, Number(chatId), replyToMessageId, {
@@ -494,6 +496,12 @@ async function startSearchJob(
         updatedAt: new Date().toISOString(),
         message: launched.error,
       },
+      checkpoint: buildSearchCheckpoint({
+        ...createEmptySearchProgress(),
+        phase: "failed",
+        updatedAt: new Date().toISOString(),
+        message: launched.error,
+      }),
     });
 
     return failed
@@ -511,6 +519,12 @@ async function startSearchJob(
       updatedAt: new Date().toISOString(),
       message: "Worker de recherche lance",
     },
+    checkpoint: buildSearchCheckpoint({
+      ...createEmptySearchProgress(),
+      phase: "starting",
+      updatedAt: new Date().toISOString(),
+      message: "Worker de recherche lance",
+    }),
   });
 
   return formatSearchJobAcknowledgement(job);
@@ -569,15 +583,7 @@ async function startApplyJob(
   if (!queued.created) {
     return [
       "Une candidature est deja en cours pour cette offre.",
-      formatApplyJobStatusForTelegram({
-        id: queued.job.id,
-        status: queued.job.status,
-        platform: queued.job.platform,
-        lastMessage: queued.job.lastMessage,
-        error: queued.job.error,
-        runtimePath: queued.job.runtimePath,
-        summary: (queued.job.summary as ApplySummary | null) ?? undefined,
-      }),
+      formatApplyJobStatusForTelegram(await serializeApplyJob(queued.job)),
     ].join("\n\n");
   }
 
@@ -607,15 +613,7 @@ async function handleApplyJobStatus(
     return "Aucun job de candidature trouve pour ce chat.";
   }
 
-  return formatApplyJobStatusForTelegram({
-    id: job.id,
-    status: job.status,
-    platform: job.platform,
-    lastMessage: job.lastMessage,
-    error: job.error,
-    runtimePath: job.runtimePath,
-    summary: (job.summary as ApplySummary | null) ?? undefined,
-  });
+  return formatApplyJobStatusForTelegram(await serializeApplyJob(job));
 }
 
 async function launchSearchJob(

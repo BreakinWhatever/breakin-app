@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { SidePanel } from "@/components/shared/side-panel";
 import { ApplyJobCard } from "@/components/jobs/apply-job-card";
 import { useLatestOfferApplyJob } from "@/components/jobs/hooks";
@@ -93,7 +94,13 @@ export function OfferSidePanel({
     const res = await fetch(`/api/offers/${offer.id}/apply`, { method: "POST" });
     if (res.ok) {
       const payload = await res.json().catch(() => null);
-      onApplied?.(offer.id, payload?.jobId);
+      if (payload?.reason === "preflight_queued" || payload?.reason === "preflight_running") {
+        toast.message("Preparation du site d'apply en cours");
+      } else if (payload?.reason === "manual_only" || payload?.reason === "blocked") {
+        toast.error(payload?.offer?.preflightError || "Cette candidature demande une revue manuelle");
+      } else {
+        onApplied?.(offer.id, payload?.jobId);
+      }
     }
     setApplying(false);
   };
@@ -132,6 +139,11 @@ export function OfferSidePanel({
         <div className="text-center">
           <ScoreDisplay score={offer.matchScore} />
           <p className="text-xs text-muted-foreground mt-1">Match Score</p>
+          {offer.applyReadiness && (
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Apply: {formatApplyReadiness(offer.applyReadiness)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -203,4 +215,12 @@ export function OfferSidePanel({
       )}
     </SidePanel>
   );
+}
+
+function formatApplyReadiness(value?: string | null) {
+  if (value === "ready") return "Pret";
+  if (value === "pending_preflight") return "Preparation";
+  if (value === "manual_only") return "Manuel";
+  if (value === "blocked") return "Bloque";
+  return value ?? "Inconnu";
 }

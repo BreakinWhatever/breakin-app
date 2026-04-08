@@ -3,6 +3,7 @@ import { openSync, closeSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import type { Prisma } from "../src/generated/prisma/client";
 
 async function main() {
   loadEnvConfig(process.cwd());
@@ -15,6 +16,9 @@ async function main() {
     countActiveApplyJobs,
     updateApplyJobRecord,
   } = await import("../src/lib/apply/jobs");
+
+  type UpdateApplyJobRecord = typeof updateApplyJobRecord;
+  type AppendApplyJobEvent = typeof appendApplyJobEvent;
 
   const workspaceDir = process.cwd();
   const requestedJobId = readFlag(process.argv.slice(2), "--job-id");
@@ -62,8 +66,8 @@ async function main() {
         workspaceDir,
         job.id,
         buildApplyJobArtifacts,
-        updateApplyJobRecord,
-        appendApplyJobEvent
+        updateApplyJobRecord as UpdateApplyJobRecord,
+        appendApplyJobEvent as AppendApplyJobEvent
       );
     }
   } finally {
@@ -83,8 +87,16 @@ async function launchJobWorker(
     logFile: string;
     screenshotDir: string;
   },
-  updateApplyJobRecord: (...args: any[]) => Promise<unknown>,
-  appendApplyJobEvent: (...args: any[]) => Promise<void>
+  updateApplyJobRecord: ((
+    jobId: string,
+    data: Prisma.ApplyJobUpdateInput
+  ) => Promise<unknown>),
+  appendApplyJobEvent: ((
+    jobId: string,
+    type: string,
+    message: string,
+    data?: Prisma.InputJsonValue
+  ) => Promise<void>)
 ) {
   const artifacts = buildApplyJobArtifacts(workspaceDir, jobId);
   await mkdir(path.dirname(artifacts.logFile), { recursive: true });

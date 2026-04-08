@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "defaults": {
+    "salary": "Open to discuss based on the role and market standards.",
+    "availability": "Available as soon as required.",
+    "linkedin": "https://www.linkedin.com/in/ousmanethienta/"
+  },
+  "questions": {
+    "are you legally authorized to work in france": "Yes.",
+    "will you now or in the future require sponsorship to work in france": "No.",
+    "how did you hear about us": "LinkedIn",
+    "phone device type": "Mobile"
+  }
+}

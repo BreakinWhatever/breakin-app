@@ -204,6 +204,14 @@ export default function OffresPage() {
           if (!res.ok) throw new Error("Failed");
           const payload = await res.json().catch(() => null);
 
+          if (payload?.reason === "preflight_queued" || payload?.reason === "preflight_running") {
+            return;
+          }
+          if (payload?.reason === "manual_only" || payload?.reason === "blocked") {
+            updateOfferStatus(item.id, "apply_failed");
+            return;
+          }
+
           updateOfferStatus(item.id, "apply_requested");
           if (payload?.jobId) {
             setTrackedApplyJobIds((prev) =>

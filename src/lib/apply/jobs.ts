@@ -1,7 +1,8 @@
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
+import { buildApplyCheckpoint } from "@/lib/ops/checkpoints";
 import type { ApplyProgress, ApplyRequest, ApplySummary } from "./types";
 
 export const ACTIVE_APPLY_JOB_STATUSES = ["queued", "running", "waiting_email"] as const;
@@ -63,7 +64,6 @@ export async function createApplyJobRecord(
   });
 
   const runtimePath = buildApplyJobRuntimeDir(workspaceDir, created.id);
-  await mkdir(runtimePath, { recursive: true });
   const updated = await prisma.applyJob.update({
     where: { id: created.id },
     data: { runtimePath },
@@ -75,6 +75,20 @@ export async function createApplyJobRecord(
     "Job de candidature cree",
     toJsonValue(request)
   );
+  await persistApplyState(workspaceDir, updated.id, {
+    progress: createEmptyApplyProgress(),
+    checkpoint: buildApplyCheckpoint({
+      phase: "queued",
+      status: "queued",
+      updatedAt: new Date().toISOString(),
+      message: "Job de candidature cree",
+      playbookKey: null,
+      authBranch: "unknown",
+      blockingReasonKey: null,
+      requiredFieldGroups: [],
+      documents: [],
+    }),
+  });
 
   return readApplyJobRecord(updated.id);
 }
@@ -216,8 +230,12 @@ export async function persistApplyState(
 ) {
   const file = buildApplyJobArtifacts(workspaceDir, jobId).stateFile;
   await mkdir(path.dirname(file), { recursive: true });
+  let previous: Record<string, unknown> = {};
+  try {
+    previous = JSON.parse(await readFile(file, "utf8")) as Record<string, unknown>;
+  } catch {}
   const temp = `${file}.tmp`;
-  await writeFile(temp, JSON.stringify(state, null, 2));
+  await writeFile(temp, JSON.stringify({ ...previous, ...state }, null, 2));
   await rename(temp, file);
 }
 

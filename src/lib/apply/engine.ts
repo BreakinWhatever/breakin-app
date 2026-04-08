@@ -1,9 +1,12 @@
 import path from "node:path";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import type { LlmProvider } from "@/lib/scoring/llm";
+import { buildApplyExecutionPlan, hasApplyAdapter } from "./adapters";
 import { runApplyWithDevBrowser, detectApplyPlatform } from "./browser";
+import { runApplyPlanWithDevBrowser } from "./browser-v3";
+import { isApplyV3Enabled } from "./config";
 import {
   appendApplyJobEvent,
   buildApplyJobArtifacts,
@@ -14,15 +17,36 @@ import {
 } from "./jobs";
 import { findStoredAnswer, storeAnswerLearning } from "./learnings";
 import { generateCoverLetter, answerApplicationQuestion } from "./llm";
+import {
+  buildApplyFlowKey,
+  findApplyManifestForOffer,
+  getApplyHost,
+  markApplyManifestResult,
+  parseApplyExecutionPlan,
+} from "./manifests";
 import { waitForVerificationArtifact } from "./mail";
+import { buildApplyPreflightArtifacts } from "./preflight-jobs";
 import { detectOfferLanguage, resolveCandidateProfile } from "./profiles";
+import { selectApplyExecutionStrategy } from "./strategy";
+import {
+  buildAnswerLookupMaps,
+  buildApplyCheckpointFromBrowserResult,
+  buildApplyOpsCheckpoint,
+  findOpsAnswer,
+  resolveApplyOpsPlan,
+} from "./ops";
 import type {
   ApplyAnswer,
+  ApplyExecutionPlan,
+  ApplyExecutionStrategy,
+  ApplyManifestStatus,
   ApplyPlatform,
   ApplyProgress,
   ApplyQuestion,
+  ApplyReadiness,
   ApplyRunHooks,
   ApplySummary,
+  ApplyTelemetry,
   BrowserRunResult,
   CandidateProfile,
   ProfileKey,
@@ -51,6 +75,7 @@ export async function runApplyJob(
   let emailChecks = 0;
   let attempts = 0;
   let answeredQuestions: ApplyAnswer[] = [];
+  let browserResult: BrowserRunResult | null = null;
 
   const language = detectOfferLanguage(
     offer.title,
@@ -59,15 +84,77 @@ export async function runApplyJob(
   ) as ProfileKey;
   const profile = await resolveCandidateProfile(language, workspaceDir);
   const platform = detectApplyPlatform(offer.url);
+  const flowKey = offer.applyFlowKey ?? buildApplyFlowKey(offer.url);
+  const host = getApplyHost(offer.url);
   const llmProvider = resolveLlmProvider(job.input);
+  const latestPreflight = await prisma.applyPreflightJob.findFirst({
+    where: {
+      offerId: offer.id,
+      status: "completed",
+    },
+    orderBy: {
+      endedAt: "desc",
+    },
+  });
+  const preflightJobId = latestPreflight?.id ?? null;
+
+  const telemetry: ApplyTelemetry = {
+    strategy: "legacy_generic",
+    contextAcquireMs: 0,
+    manifestLoadMs: 0,
+    formFillMs: 0,
+    submitMs: 0,
+    postSubmitValidationMs: 0,
+    totalMs: 0,
+  };
+
+  const manifestLoadedAt = Date.now();
+  const manifest = await findApplyManifestForOffer({
+    url: offer.url,
+    platform,
+    language,
+    manifestId: offer.applyManifestId,
+  });
+  const manifestId = manifest?.id ?? offer.applyManifestId ?? null;
+  const manifestStatus = normalizeManifestStatus(
+    offer.applyManifestStatus ?? manifest?.status
+  );
+  let readiness = normalizeReadiness(offer.applyReadiness);
+  let plan = parseApplyExecutionPlan(manifest?.plan);
+  if (!plan && hasApplyAdapter(platform)) {
+    plan = buildApplyExecutionPlan(platform, flowKey);
+    readiness ??= "ready";
+  }
+  telemetry.manifestLoadMs = Date.now() - manifestLoadedAt;
+
+  const strategy = selectApplyExecutionStrategy({
+    v3Enabled: isApplyV3Enabled(),
+    platform,
+    readiness,
+    manifestStatus,
+    plan,
+  });
+  telemetry.strategy = strategy;
+  const opsContext = await resolveApplyOpsPlan({
+    workspaceDir,
+    host,
+    flowKey,
+    platform,
+    plan: plan ?? buildApplyExecutionPlan(platform, flowKey),
+  });
+  const runtimePlan = opsContext.plan;
+  const answerLookups = await buildAnswerLookupMaps(workspaceDir);
 
   await emitProgress(
     jobId,
     {
-      phase: "preparing",
+      phase: strategy === "manual" ? "needs_human" : "preparing",
       updatedAt: new Date().toISOString(),
-      message: "Preparation de la candidature",
+      message: strategy === "manual"
+        ? "Candidature sortie du fast path"
+        : "Preparation de la candidature",
       platform,
+      strategy,
       attempts,
       questionsPending: 0,
       emailChecks,
@@ -78,14 +165,27 @@ export async function runApplyJob(
     language,
     profileKey: profile.key,
     platform,
-    lastMessage: "Preparation de la candidature",
+    lastMessage: strategy === "manual"
+      ? "Candidature sortie du fast path"
+      : "Preparation de la candidature",
   });
 
   try {
-    coverLetter = await generateCoverLetter(offer, profile, llmProvider, workspaceDir);
+    if (strategy === "manual") {
+      throw new Error(
+        readiness === "manual_only"
+          ? "Apply requires manual review for this site"
+          : "Apply requires preflight or fallback handling"
+      );
+    }
+
+    coverLetter = await resolvePreparedCoverLetter(
+      workspaceDir,
+      preflightJobId,
+      profile.language
+    ) ?? await generateCoverLetter(offer, profile, llmProvider, workspaceDir);
     await appendApplyJobEvent(jobId, "cover_letter", "Lettre de motivation preparee");
 
-    let browserResult: BrowserRunResult | null = null;
     for (attempts = 1; attempts <= 4; attempts += 1) {
       browserResult = await runBrowserAttempt({
         jobId,
@@ -100,16 +200,32 @@ export async function runApplyJob(
         workspaceDir,
         hooks,
         emailChecks,
+        strategy,
+        plan: runtimePlan,
+        telemetry,
       });
 
       finalUrl = browserResult.currentUrl ?? finalUrl;
+      const checkpoint = buildApplyCheckpointFromBrowserResult({
+        result: browserResult,
+        playbook: opsContext.playbook,
+        documents: opsContext.documents,
+        plan: runtimePlan,
+        phase: mapBrowserResultToPhase(browserResult),
+        status: mapBrowserResultToStatus(browserResult),
+        updatedAt: new Date().toISOString(),
+      });
+      browserResult.checkpoint = checkpoint;
+      browserResult.blockingReasonKey = checkpoint.blockingReasonKey ?? null;
       await persistApplyState(workspaceDir, jobId, {
         attempt: attempts,
         platform,
+        strategy,
         browserResult,
         answeredQuestions,
         verificationLink,
         verificationCode,
+        checkpoint,
       });
 
       if (browserResult.status === "submitted") {
@@ -128,6 +244,7 @@ export async function runApplyJob(
             updatedAt: new Date().toISOString(),
             message: "Verification email en attente",
             platform,
+            strategy,
             attempts,
             questionsPending: 0,
             emailChecks,
@@ -169,6 +286,7 @@ export async function runApplyJob(
           offer,
           coverLetter,
           llmProvider,
+          answerLookups,
         });
         const merged = mergeAnswers(answeredQuestions, resolved);
         if (merged.length === answeredQuestions.length) {
@@ -187,6 +305,7 @@ export async function runApplyJob(
             updatedAt: new Date().toISOString(),
             message: `${resolved.length} reponses supplementaires preparees`,
             platform,
+            strategy,
             attempts,
             questionsPending: browserResult.questions?.length ?? 0,
             emailChecks,
@@ -223,16 +342,36 @@ export async function runApplyJob(
     });
 
     const endedAt = new Date();
+    const checkpoint = buildApplyOpsCheckpoint({
+      phase: "completed",
+      status: "succeeded",
+      updatedAt: endedAt.toISOString(),
+      message: "Candidature terminee",
+      currentUrl: finalUrl,
+      playbook: opsContext.playbook,
+      documents: opsContext.documents,
+      plan: runtimePlan,
+      metrics: {
+        attempts,
+        emailChecks,
+        answeredQuestions: answeredQuestions.length,
+      },
+    });
     const summary: ApplySummary = {
       jobId,
       offerId: offer.id,
       source: job.source,
       platform,
+      strategy,
       language: profile.language,
       profileKey: profile.key,
       outcome: "succeeded",
       applicationId,
       coverLetterId,
+      manifestId,
+      manifestStatus,
+      preflightJobId,
+      readiness,
       startedAt: startedAt.toISOString(),
       endedAt: endedAt.toISOString(),
       durationSeconds: Math.max(
@@ -242,11 +381,38 @@ export async function runApplyJob(
       finalUrl,
       runtimePath: artifacts.runtimeDir,
       artifacts,
+      telemetry: {
+        ...telemetry,
+        totalMs: Math.max(1, endedAt.getTime() - startedAt.getTime()),
+      },
       answeredQuestions,
       errors,
+      playbookKey: runtimePlan?.playbookKey ?? null,
+      authBranch: runtimePlan?.authBranch ?? null,
+      blockingReasonKey: checkpoint.blockingReasonKey ?? null,
+      checkpoint,
+      documents: opsContext.documents,
     };
 
+    if (manifestId) {
+      await markApplyManifestResult(manifestId, "succeeded").catch(() => {});
+    }
+
     await persistApplySummary(workspaceDir, summary);
+    await persistApplyState(workspaceDir, jobId, {
+      checkpoint,
+      progress: {
+        phase: "completed",
+        updatedAt: endedAt.toISOString(),
+        message: "Candidature terminee",
+        platform,
+        strategy,
+        attempts,
+        questionsPending: 0,
+        emailChecks,
+        currentUrl: finalUrl,
+      },
+    });
     await updateApplyJobRecord(jobId, {
       status: "succeeded",
       endedAt,
@@ -261,6 +427,7 @@ export async function runApplyJob(
     await appendApplyJobEvent(jobId, "completed", "Candidature soumise avec succes", {
       applicationId,
       finalUrl,
+      strategy,
     } as unknown as Prisma.InputJsonValue);
     await emitProgress(
       jobId,
@@ -269,6 +436,7 @@ export async function runApplyJob(
         updatedAt: endedAt.toISOString(),
         message: "Candidature terminee",
         platform,
+        strategy,
         attempts,
         questionsPending: 0,
         emailChecks,
@@ -284,16 +452,40 @@ export async function runApplyJob(
     }
 
     const endedAt = new Date();
+    const checkpoint = buildApplyOpsCheckpoint({
+      phase: "failed",
+      status: "failed",
+      updatedAt: endedAt.toISOString(),
+      message,
+      currentUrl: finalUrl,
+      playbook: opsContext.playbook,
+      documents: opsContext.documents,
+      plan: runtimePlan,
+      blockingReasonKey:
+        browserResult?.blockingReasonKey
+        ?? runtimePlan?.blockingReasonKey
+        ?? "worker_failed",
+      metrics: {
+        attempts,
+        emailChecks,
+        answeredQuestions: answeredQuestions.length,
+      },
+    });
     const summary: ApplySummary = {
       jobId,
       offerId: offer.id,
       source: job.source,
       platform,
+      strategy,
       language: profile.language,
       profileKey: profile.key,
       outcome: "failed",
       applicationId,
       coverLetterId,
+      manifestId,
+      manifestStatus,
+      preflightJobId,
+      readiness,
       startedAt: startedAt.toISOString(),
       endedAt: endedAt.toISOString(),
       durationSeconds: Math.max(
@@ -303,11 +495,38 @@ export async function runApplyJob(
       finalUrl,
       runtimePath: artifacts.runtimeDir,
       artifacts,
+      telemetry: {
+        ...telemetry,
+        totalMs: Math.max(1, endedAt.getTime() - startedAt.getTime()),
+      },
       answeredQuestions,
       errors,
+      playbookKey: runtimePlan?.playbookKey ?? null,
+      authBranch: runtimePlan?.authBranch ?? null,
+      blockingReasonKey: checkpoint.blockingReasonKey ?? null,
+      checkpoint,
+      documents: opsContext.documents,
     };
 
+    if (manifestId) {
+      await markApplyManifestResult(manifestId, "failed").catch(() => {});
+    }
+
     await persistApplySummary(workspaceDir, summary).catch(() => {});
+    await persistApplyState(workspaceDir, jobId, {
+      checkpoint,
+      progress: {
+        phase: "failed",
+        updatedAt: endedAt.toISOString(),
+        message,
+        platform,
+        strategy,
+        attempts,
+        questionsPending: 0,
+        emailChecks,
+        currentUrl: finalUrl,
+      },
+    }).catch(() => {});
     await prisma.jobOffer.update({
       where: { id: offer.id },
       data: { status: "apply_failed" },
@@ -330,6 +549,7 @@ export async function runApplyJob(
         updatedAt: endedAt.toISOString(),
         message,
         platform,
+        strategy,
         attempts,
         questionsPending: 0,
         emailChecks,
@@ -361,6 +581,9 @@ async function runBrowserAttempt(input: {
   workspaceDir: string;
   hooks: ApplyRunHooks;
   emailChecks: number;
+  strategy: ApplyExecutionStrategy;
+  plan: ApplyExecutionPlan | null;
+  telemetry: ApplyTelemetry;
 }) {
   const artifacts = buildApplyJobArtifacts(input.workspaceDir, input.jobId);
   const screenshotPath = path.join(
@@ -370,13 +593,22 @@ async function runBrowserAttempt(input: {
 
   await mkdir(artifacts.screenshotDir, { recursive: true });
 
+  const contextAcquireStartedAt = Date.now();
   await emitProgress(
     input.jobId,
     {
-      phase: input.verificationLink || input.verificationCode ? "auth" : "opening",
+      phase:
+        input.plan && input.strategy === "manifest"
+          ? "context_acquire"
+          : input.strategy === "agent_fallback"
+          ? "fallback"
+          : input.verificationLink || input.verificationCode
+          ? "auth"
+          : "opening",
       updatedAt: new Date().toISOString(),
       message: `Tentative ${input.attempt}: ouverture du navigateur`,
       platform: input.platform,
+      strategy: input.strategy,
       attempts: input.attempt,
       questionsPending: input.answeredQuestions.length,
       emailChecks: input.emailChecks,
@@ -390,29 +622,55 @@ async function runBrowserAttempt(input: {
     lastMessage: `Tentative ${input.attempt} en cours`,
   });
 
-  const result = await runApplyWithDevBrowser({
-    platform: input.platform,
-    url: input.offer.url,
-    profile: input.profile,
-    coverLetter: input.coverLetter,
-    extraAnswers: input.answeredQuestions,
-    verificationLink: input.verificationLink,
-    verificationCode: input.verificationCode,
-    screenshotPath,
-  });
+  input.telemetry.contextAcquireMs += Date.now() - contextAcquireStartedAt;
+  const browserStartedAt = Date.now();
 
-    await appendApplyJobEvent(
-      input.jobId,
-      "attempt",
-      `Tentative ${input.attempt}: ${result.status}`,
-      {
-        message: result.message,
-        currentUrl: result.currentUrl,
-        pageTextSnippet: result.pageTextSnippet,
-        questions: result.questions ?? [],
+  const result = input.plan && input.strategy === "manifest"
+    ? await runApplyPlanWithDevBrowser({
+        platform: input.platform,
+        url: input.offer.url,
+        profile: input.profile,
+        coverLetter: input.coverLetter,
+        extraAnswers: input.answeredQuestions,
+        verificationLink: input.verificationLink,
+        verificationCode: input.verificationCode,
         screenshotPath,
-      } as unknown as Prisma.InputJsonValue
-    );
+        plan: input.plan,
+      })
+    : await runApplyWithDevBrowser({
+        platform: input.platform,
+        url: input.offer.url,
+        profile: input.profile,
+        coverLetter: input.coverLetter,
+        extraAnswers: input.answeredQuestions,
+        verificationLink: input.verificationLink,
+        verificationCode: input.verificationCode,
+        screenshotPath,
+      });
+
+  const browserElapsedMs = Date.now() - browserStartedAt;
+  input.telemetry.formFillMs += Math.round(browserElapsedMs * 0.6);
+  input.telemetry.submitMs += Math.round(browserElapsedMs * 0.25);
+  input.telemetry.postSubmitValidationMs += Math.max(
+    1,
+    browserElapsedMs
+      - Math.round(browserElapsedMs * 0.6)
+      - Math.round(browserElapsedMs * 0.25)
+  );
+
+  await appendApplyJobEvent(
+    input.jobId,
+    "attempt",
+    `Tentative ${input.attempt}: ${result.status}`,
+    {
+      message: result.message,
+      currentUrl: result.currentUrl,
+      pageTextSnippet: result.pageTextSnippet,
+      questions: result.questions ?? [],
+      screenshotPath,
+      strategy: input.strategy,
+    } as unknown as Prisma.InputJsonValue
+  );
 
   return result;
 }
@@ -431,6 +689,7 @@ async function resolveAnswers(input: {
   };
   coverLetter: string;
   llmProvider: LlmProvider | undefined;
+  answerLookups: Awaited<ReturnType<typeof buildAnswerLookupMaps>>;
 }) {
   const answers: ApplyAnswer[] = [];
 
@@ -447,6 +706,24 @@ async function resolveAnswers(input: {
         answer: stored.answer,
         source: "memory",
       });
+      continue;
+    }
+
+    const opsAnswer = findOpsAnswer(question, input.answerLookups);
+    if (opsAnswer) {
+      answers.push({
+        questionKey: question.key,
+        label: question.label,
+        answer: opsAnswer,
+        source: "rules",
+      });
+      await storeAnswerLearning(
+        input.workspaceDir,
+        input.platform,
+        question.label,
+        opsAnswer,
+        "rules"
+      );
       continue;
     }
 
@@ -580,6 +857,7 @@ async function emitProgress(
     questionsPending: progress.questionsPending,
     emailChecks: progress.emailChecks,
     platform: progress.platform ?? null,
+    strategy: progress.strategy ?? null,
   } as unknown as Prisma.InputJsonValue).catch(() => {});
 }
 
@@ -607,4 +885,63 @@ function resolveLlmProvider(input: Prisma.JsonValue | null): LlmProvider | undef
     return value;
   }
   return undefined;
+}
+
+async function resolvePreparedCoverLetter(
+  workspaceDir: string,
+  preflightJobId: string | null,
+  language: ProfileKey
+) {
+  if (!preflightJobId) return null;
+
+  try {
+    const file = buildApplyPreflightArtifacts(workspaceDir, preflightJobId).answerBundleFile;
+    const raw = await readFile(file, "utf8");
+    const parsed = JSON.parse(raw) as {
+      coverLetters?: Partial<Record<ProfileKey, string>>;
+    };
+    return parsed.coverLetters?.[language] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeReadiness(value: string | null | undefined): ApplyReadiness | null {
+  if (
+    value === "ready"
+    || value === "pending_preflight"
+    || value === "blocked"
+    || value === "manual_only"
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function normalizeManifestStatus(value: string | null | undefined): ApplyManifestStatus | null {
+  if (
+    value === "draft"
+    || value === "validated"
+    || value === "degraded"
+    || value === "broken"
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function mapBrowserResultToPhase(result: BrowserRunResult) {
+  if (result.status === "submitted") return "completed";
+  if (result.status === "needs_email_verification") return "email_verification";
+  if (result.status === "needs_answers") return "answering";
+  if (result.status === "manual_review") return "needs_human";
+  return "failed";
+}
+
+function mapBrowserResultToStatus(result: BrowserRunResult) {
+  if (result.status === "submitted") return "succeeded";
+  if (result.status === "needs_email_verification") return "waiting_email";
+  if (result.status === "needs_answers") return "blocked";
+  if (result.status === "manual_review") return "manual_review";
+  return "failed";
 }

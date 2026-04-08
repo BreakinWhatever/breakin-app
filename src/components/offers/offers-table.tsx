@@ -17,6 +17,11 @@ export interface OfferRow {
   source: string;
   matchScore: number | null;
   status: string;
+  applyPlatform?: string | null;
+  applyReadiness?: string | null;
+  applyManifestStatus?: string | null;
+  lastPreflightAt?: string | null;
+  preflightError?: string | null;
   postedAt: string | null;
   createdAt: string;
   url: string;

@@ -70,12 +70,17 @@ export function getApplyJobPercent(job: ApplyJobView) {
 
   const lastPhase = getApplyPhase(job);
   if (lastPhase === "queued") return 8;
+  if (lastPhase === "preflight_wait") return 12;
   if (lastPhase === "preparing") return 18;
+  if (lastPhase === "context_acquire") return 28;
+  if (lastPhase === "manifest_load") return 32;
   if (lastPhase === "opening") return 34;
   if (lastPhase === "auth") return 52;
   if (lastPhase === "email_verification") return 66;
   if (lastPhase === "answering") return 78;
   if (lastPhase === "submitting") return 92;
+  if (lastPhase === "fallback") return 48;
+  if (lastPhase === "needs_human") return 100;
   if (lastPhase === "completed") return 100;
   if (lastPhase === "failed") return 100;
   if (job.status === "waiting_email") return 66;
@@ -90,12 +95,17 @@ export function getApplyJobLabel(job: ApplyJobView) {
   if (job.status === "cancelled") return "Candidature annulee";
 
   const phase = getApplyPhase(job);
+  if (phase === "preflight_wait") return "Preparation du site";
   if (phase === "preparing") return "Preparation du dossier";
+  if (phase === "context_acquire") return "Chargement du contexte";
+  if (phase === "manifest_load") return "Chargement du manifest";
   if (phase === "opening") return "Ouverture du site";
   if (phase === "auth") return "Connexion ou creation de compte";
   if (phase === "email_verification") return "Verification email";
   if (phase === "answering") return "Remplissage du formulaire";
   if (phase === "submitting") return "Soumission finale";
+  if (phase === "fallback") return "Fallback intelligent";
+  if (phase === "needs_human") return "Revue manuelle";
   if (phase === "completed") return "Candidature envoyee";
   if (phase === "failed") return "Execution interrompue";
   return "Execution en cours";

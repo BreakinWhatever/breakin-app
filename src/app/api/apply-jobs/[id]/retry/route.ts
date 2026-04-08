@@ -1,25 +1,14 @@
 import { NextRequest } from "next/server";
+import { isApplyPreflightEnabled } from "@/lib/apply/config";
+import { serializePreflightJob, serializeApplyJob } from "@/lib/apply/payloads";
+import { readApplyJobRecord } from "@/lib/apply/jobs";
+import { ensureOfferApplyReady } from "@/lib/apply/preflight";
+import {
+  dispatchApplyPreflightJob,
+  failApplyPreflightDispatch,
+} from "@/lib/apply/preflight-dispatch";
 import { retryApplyJob } from "@/lib/apply/service";
-import { createHmac } from "crypto";
-
-const VPS_WEBHOOK = "http://46.225.210.206:9000/hooks/apply-offer";
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET!;
-
-async function triggerVPSApply(jobId: string, offerId: string) {
-  const payload = JSON.stringify({ job_id: jobId, offer_id: offerId });
-  const sig = createHmac("sha256", WEBHOOK_SECRET)
-    .update(payload)
-    .digest("hex");
-
-  await fetch(VPS_WEBHOOK, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Hub-Signature-256": `sha256=${sig}`,
-    },
-    body: payload,
-  }).catch(() => {});
-}
+import { dispatchApplyJob, failApplyDispatch } from "@/lib/apply/dispatch";
 
 export async function POST(
   _request: NextRequest,
@@ -27,7 +16,51 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const queued = await retryApplyJob(process.cwd(), id);
+    const workspaceDir = process.cwd();
+    const previous = await readApplyJobRecord(id);
+    if (!previous) {
+      return Response.json(
+        { error: "Apply job not found" },
+        { status: 404 }
+      );
+    }
+
+    if (isApplyPreflightEnabled()) {
+      const readiness = await ensureOfferApplyReady(workspaceDir, {
+        offerId: previous.offerId,
+        source: "retry",
+      });
+
+      if (!readiness.ready) {
+        if (readiness.job && (readiness.reason === "preflight_queued" || readiness.reason === "preflight_running")) {
+          const dispatch = await dispatchApplyPreflightJob(workspaceDir, readiness.job.id, readiness.offer.id);
+          if (!dispatch.ok && readiness.reason === "preflight_queued") {
+            const message = dispatch.message ?? "Failed to dispatch preflight job";
+            await failApplyPreflightDispatch(readiness.offer.id, readiness.job.id, message);
+            return Response.json(
+              {
+                error: message,
+                preflightJobId: readiness.job.id,
+                reason: "preflight_dispatch_failed",
+              },
+              { status: 502 }
+            );
+          }
+        }
+
+        return Response.json(
+          {
+            preflightJobId: readiness.job?.id ?? null,
+            preflightPollUrl: readiness.job ? `/api/preflight-jobs/${readiness.job.id}` : null,
+            preflightJob: readiness.job ? await serializePreflightJob(readiness.job) : null,
+            reason: readiness.reason,
+          },
+          { status: readiness.reason === "manual_only" || readiness.reason === "blocked" ? 409 : 202 }
+        );
+      }
+    }
+
+    const queued = await retryApplyJob(workspaceDir, id);
 
     if (!queued.job) {
       return Response.json(
@@ -36,13 +69,26 @@ export async function POST(
       );
     }
 
-    await triggerVPSApply(queued.job.id, queued.offer.id);
+    const dispatch = await dispatchApplyJob(workspaceDir, queued.job.id, queued.offer.id);
+    if (!dispatch.ok) {
+      const message = dispatch.message ?? "Failed to dispatch apply job";
+      await failApplyDispatch(queued.offer.id, queued.job.id, message);
+      return Response.json(
+        {
+          error: message,
+          jobId: queued.job.id,
+          reason: "dispatch_failed",
+        },
+        { status: 502 }
+      );
+    }
 
     return Response.json(
       {
         jobId: queued.job.id,
         status: queued.job.status,
         pollUrl: `/api/apply-jobs/${queued.job.id}`,
+        job: await serializeApplyJob(queued.job),
       },
       { status: 202 }
     );

@@ -1,5 +1,6 @@
 import { APPLY_SUMMARY_MARKER } from "./cli";
 import type { ApplySummary } from "./types";
+import type { RunCheckpoint } from "@/lib/ops/types";
 
 export interface TelegramApplyIntent {
   offerIdOrUrl: string;
@@ -78,6 +79,19 @@ export function formatApplySummaryForTelegram(summary: ApplySummary) {
     `Artefacts: ${summary.artifacts.runtimeDir}`,
   ];
 
+  if (summary.playbookKey) {
+    lines.push(`Playbook: ${summary.playbookKey}`);
+  }
+  if (summary.authBranch) {
+    lines.push(`Branche auth: ${summary.authBranch}`);
+  }
+  if (summary.blockingReasonKey && summary.outcome !== "succeeded") {
+    lines.push(`Blocage: ${summary.blockingReasonKey}`);
+  }
+  if (summary.checkpoint?.nextAction) {
+    lines.push(`Action: ${summary.checkpoint.nextAction}`);
+  }
+
   if (summary.applicationId) {
     lines.push(`Application: ${summary.applicationId}`);
   }
@@ -97,15 +111,23 @@ export function formatApplyJobStatusForTelegram(job: {
   error: string | null;
   runtimePath: string | null;
   summary?: ApplySummary | null;
+  checkpoint?: RunCheckpoint | null;
+  ops?: {
+    checkpoint?: RunCheckpoint | null;
+  } | null;
 }) {
   if (job.status === "succeeded" && job.summary) {
     return formatApplySummaryForTelegram(job.summary);
   }
 
+  const checkpoint = job.checkpoint ?? job.ops?.checkpoint ?? job.summary?.checkpoint ?? null;
+
   if (job.status === "failed") {
     return [
       `Job ${job.id} en echec.`,
       job.error ?? job.lastMessage ?? "Erreur inconnue.",
+      checkpoint?.blockingReasonKey ? `Blocage: ${checkpoint.blockingReasonKey}` : "",
+      checkpoint?.nextAction ? `Action: ${checkpoint.nextAction}` : "",
       job.runtimePath ? `Artefacts: ${job.runtimePath}` : "",
     ]
       .filter(Boolean)
@@ -116,7 +138,10 @@ export function formatApplyJobStatusForTelegram(job: {
     `Job ${job.id}`,
     labelForStatus(job.status),
     job.platform ? `Plateforme: ${job.platform}` : "",
+    checkpoint?.authBranch ? `Branche auth: ${checkpoint.authBranch}` : "",
     job.lastMessage ?? "",
+    checkpoint?.blockingReasonKey ? `Blocage: ${checkpoint.blockingReasonKey}` : "",
+    checkpoint?.nextAction ? `Action: ${checkpoint.nextAction}` : "",
     job.runtimePath ? `Artefacts: ${job.runtimePath}` : "",
   ]
     .filter(Boolean)

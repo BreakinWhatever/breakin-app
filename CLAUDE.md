@@ -5,6 +5,16 @@
 This is BreakIn, a cold emailing system for finance job hunting.
 The app runs on http://localhost:3000.
 
+## Session Start
+
+Before doing substantial work, load these repo-canonical ops docs in order:
+
+1. `ops/PROGRESS.md`
+2. `ops/system-map.md`
+3. The targeted playbook or runbook from `ops/retrieval/index.json`
+
+The wiki is a mirror/index only. Durable operational memory lives in `ops/`.
+
 ## Running the Agent ("lance l'agent")
 
 When the user says "lance l'agent", run the 3 phases below in order. Present results after each phase and wait for user validation before executing.
@@ -600,3 +610,25 @@ tg "❌ <b>Échec candidature</b>
 3) After actions, append a short recap to:
 - ~/wiki/wiki/hot-Candidatures.md (decisions, todos)
 - /Users/ousmane/Desktop/Candidatures/breakin/AGENT.md or CLAUDE.md (what changed, next steps)
+
+## Session Recap — 2026-04-08
+
+- V3 apply/preflight est maintenant câblé en prod:
+  - Vercel production déployé avec les env de dispatch remote
+  - VPS `openclaw` mis à jour avec le schema Prisma V3, le hook `apply-preflight`, et le runtime `dev-browser`
+- Le preflight `Ares` passe en prod:
+  - offre `cmnne2xc5000r09iid0ntko93`
+  - preflight `cmnpjw9dm000004i695lz2p89`
+  - résultat: `workday`, `validated`, `ready`
+- L’apply `Ares` n’est pas encore soumis:
+  - le worker distant lance bien les jobs, mais retombe encore sur Workday auth
+  - comportement observé: le bouton `Create Account` redirige vers `Sign In`, signe qu’un compte existe déjà pour l’email EN
+  - blocage applicatif stable côté worker: `Additional required answers detected` sur `Password / Verify New Password`
+- Fichiers clés touchés dans ce scope:
+  - `src/lib/apply/browser.ts`
+  - `src/lib/apply/browser-v3.ts`
+  - `src/lib/apply/engine.ts`
+  - `src/lib/apply/preflight.ts`
+  - `src/lib/apply/preflight-dispatch.ts`
+  - `src/app/api/offers/[id]/apply/route.ts`
+  - `src/app/api/offers/[id]/preflight/route.ts`

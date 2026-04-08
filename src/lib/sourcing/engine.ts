@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { BasicCrawler, Configuration, Dataset, RequestQueue } from "crawlee";
 import { detectContractType } from "@/lib/offers";
+import { queueApplyPreflightForOfferUrls } from "@/lib/apply/preflight";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import {
@@ -617,6 +618,14 @@ async function persistOffers(offers: PersistableOffer[]) {
         matchAnalysis: offer.matchAnalysis,
       },
     });
+  }
+
+  if (toCreate.length > 0) {
+    await queueApplyPreflightForOfferUrls(
+      process.cwd(),
+      toCreate.map((offer) => offer.url),
+      "search_import"
+    ).catch(() => {});
   }
 
   return {

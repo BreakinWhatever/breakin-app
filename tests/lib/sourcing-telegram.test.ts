@@ -158,6 +158,13 @@ describe("sourcing telegram helpers", () => {
         offersFound: 18,
         currentCompany: "Ardian",
       },
+      checkpoint: {
+        domain: "search" as const,
+        phase: "crawling",
+        updatedAt: "2026-04-07T12:00:00.000Z",
+        currentStep: "Ardian",
+        nextAction: null,
+      },
     };
 
     expect(formatSearchJobAcknowledgement(job)).toContain("search-abc-123");

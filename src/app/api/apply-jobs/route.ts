@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
+import { serializeApplyJob } from "@/lib/apply/payloads";
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
       take: 50,
     });
 
-    return Response.json(jobs);
+    return Response.json(await Promise.all(jobs.map((job) => serializeApplyJob(job))));
   } catch (error) {
     console.error("GET /api/apply-jobs error:", error);
     return Response.json(

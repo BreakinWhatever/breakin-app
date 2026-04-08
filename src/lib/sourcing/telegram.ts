@@ -103,6 +103,7 @@ export function formatSearchSummaryForTelegram(summary: SearchSummary) {
 
 export function formatSearchProgressForTelegram(job: SearchJobRecord) {
   const progress = job.progress;
+  const checkpoint = job.checkpoint;
   const lines = [
     `Job ${job.jobId}`,
     `${labelForPhase(progress.phase)}`,
@@ -124,6 +125,12 @@ export function formatSearchProgressForTelegram(job: SearchJobRecord) {
   }
   if (progress.message) {
     lines.push(progress.message);
+  }
+  if (checkpoint?.nextAction) {
+    lines.push(`Action: ${checkpoint.nextAction}`);
+  }
+  if (checkpoint?.blockingReasonKey && job.status === "failed") {
+    lines.push(`Blocage: ${checkpoint.blockingReasonKey}`);
   }
 
   return lines.join("\n");

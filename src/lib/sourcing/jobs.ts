@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { SearchOffersInput, SearchProgress, SearchSummary } from "./types";
+import type { RunCheckpoint } from "@/lib/ops/types";
 
 export type SearchJobStatus = "queued" | "running" | "completed" | "failed";
 
@@ -19,6 +20,7 @@ export interface SearchJobRecord {
   logFile: string;
   request: Partial<SearchOffersInput>;
   progress: SearchProgress;
+  checkpoint?: RunCheckpoint | null;
   summary?: SearchSummary;
   error?: string;
 }

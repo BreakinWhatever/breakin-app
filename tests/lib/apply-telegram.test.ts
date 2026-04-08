@@ -9,6 +9,7 @@ import {
   parseTelegramApplyJobIntent,
 } from "@/lib/apply/telegram";
 import { formatApplySummaryForStdout } from "@/lib/apply/cli";
+import type { ApplySummary } from "@/lib/apply/types";
 
 describe("apply telegram helpers", () => {
   it("parses strict apply commands", () => {
@@ -48,16 +49,24 @@ describe("apply telegram helpers", () => {
         lastMessage: "Tentative 1 en cours",
         error: null,
         runtimePath: "/tmp/job",
+        checkpoint: {
+          domain: "apply",
+          phase: "auth",
+          updatedAt: "2026-04-07T12:00:00.000Z",
+          authBranch: "existing_account_sign_in",
+          nextAction: "Open Sign In, fill email and password, submit, then wait for My Information or the next application step.",
+        },
       })
-    ).toContain("workday");
+    ).toContain("existing_account_sign_in");
   });
 
   it("parses marked apply summary output", () => {
-    const summary = {
+    const summary: ApplySummary = {
       jobId: "cm1",
       offerId: "offer1",
       source: "cli",
       platform: "workday",
+      strategy: "ats_adapter",
       language: "en",
       profileKey: "en",
       outcome: "succeeded",
@@ -76,9 +85,18 @@ describe("apply telegram helpers", () => {
         logFile: "/tmp/apply/cm1/worker.log",
         screenshotDir: "/tmp/apply/cm1/screenshots",
       },
+      telemetry: {
+        strategy: "ats_adapter",
+        contextAcquireMs: 10,
+        manifestLoadMs: 10,
+        formFillMs: 10,
+        submitMs: 10,
+        postSubmitValidationMs: 10,
+        totalMs: 50,
+      },
       answeredQuestions: [],
       errors: [],
-    } as const;
+    };
 
     const parsed = parseApplySummaryOutput(
       `noise\n${formatApplySummaryForStdout(summary)}\n`

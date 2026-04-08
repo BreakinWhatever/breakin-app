@@ -207,14 +207,23 @@ model JobOffer {
   matchScore    Int?
   matchAnalysis String?
   status        String    @default("new")
+  applyPlatform String?
+  applyReadiness String?  @default("pending_preflight")
+  applyManifestStatus String?
+  applyManifestId String?
+  applyFlowKey String?
+  lastPreflightAt DateTime?
+  preflightError String?
   postedAt      DateTime?
   scrapedAt     DateTime  @default(now())
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  companyRef   Company?      @relation(fields: [companyId], references: [id])
-  applications Application[]
-  applyJobs    ApplyJob[]
+  companyRef        Company?           @relation(fields: [companyId], references: [id])
+  applySiteManifest ApplySiteManifest? @relation(fields: [applyManifestId], references: [id])
+  applications      Application[]
+  applyJobs         ApplyJob[]
+  preflightJobs     ApplyPreflightJob[]
 }
 
 model ScrapeRun {
@@ -304,6 +313,60 @@ model ApplyJobEvent {
   job ApplyJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId, createdAt])
+}
+
+model ApplySiteManifest {
+  id                    String              @id @default(cuid())
+  host                  String
+  platform              String
+  flowKey               String
+  language              String              @default("en")
+  status                String              @default("draft")
+  confidence            Int                 @default(0)
+  runtimePath           String?
+  plan                  Json?
+  observation           Json?
+  successSignals        Json?
+  verificationSignals   Json?
+  errorSignals          Json?
+  submitHints           Json?
+  rawObservationSummary Json?
+  consecutiveFailures   Int                 @default(0)
+  lastValidatedAt       DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  offers        JobOffer[]
+  preflightJobs ApplyPreflightJob[]
+
+  @@unique([host, platform, flowKey, language])
+  @@index([host, platform, status])
+}
+
+model ApplyPreflightJob {
+  id          String             @id @default(cuid())
+  offerId     String
+  manifestId  String?
+  source      String             @default("system")
+  status      String             @default("queued")
+  language    String?
+  profileKey  String?
+  platform    String?
+  runtimePath String?
+  summary     Json?
+  error       String?
+  lastMessage String?
+  pid         Int?
+  createdAt   DateTime           @default(now())
+  startedAt   DateTime?
+  endedAt     DateTime?
+  updatedAt   DateTime           @updatedAt
+
+  offer     JobOffer          @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  manifest  ApplySiteManifest? @relation(fields: [manifestId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([offerId, createdAt])
 }
 
 // --- SP7: Scheduled Recaps ---

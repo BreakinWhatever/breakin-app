@@ -14,6 +14,7 @@ async function main() {
     formatApplyJobStatusForTelegram,
     formatApplySummaryForTelegram,
   } = await import("../src/lib/apply/telegram");
+  const { serializeApplyJob } = await import("../src/lib/apply/payloads");
 
   const jobId = readFlag(process.argv.slice(2), "--job-id");
   if (!jobId) {
@@ -50,15 +51,18 @@ async function main() {
 
       const current = await readApplyJobRecord(jobId);
       if (current) {
+        const enriched = await serializeApplyJob(current);
         await sendTelegramMessage(
           current.chatId ?? "",
           formatApplyJobStatusForTelegram({
-            id: current.id,
-            status: current.status,
-            platform: current.platform,
-            lastMessage: current.lastMessage,
-            error: current.error,
-            runtimePath: current.runtimePath,
+            id: enriched.id,
+            status: enriched.status,
+            platform: enriched.platform,
+            lastMessage: enriched.lastMessage,
+            error: enriched.error,
+            runtimePath: enriched.runtimePath,
+            summary: enriched.summary ?? undefined,
+            checkpoint: enriched.ops?.checkpoint ?? undefined,
           }),
           current.replyToMessageId ?? undefined
         ).catch(() => {});
@@ -144,20 +148,24 @@ main()
     const { launchLocalApplyDispatcher } = await import("../src/lib/apply/launcher");
     const { readApplyJobRecord } = await import("../src/lib/apply/jobs");
     const { formatApplyJobStatusForTelegram } = await import("../src/lib/apply/telegram");
+    const { serializeApplyJob } = await import("../src/lib/apply/payloads");
     const jobId = readFlag(process.argv.slice(2), "--job-id");
     await launchLocalApplyDispatcher(process.cwd()).catch(() => {});
     if (jobId) {
       const job = await readApplyJobRecord(jobId).catch(() => null);
       if (job?.chatId && job.status === "failed") {
+        const enriched = await serializeApplyJob(job);
         await sendTelegramMessage(
           job.chatId,
           formatApplyJobStatusForTelegram({
-            id: job.id,
-            status: job.status,
-            platform: job.platform,
-            lastMessage: job.lastMessage,
-            error: job.error,
-            runtimePath: job.runtimePath,
+            id: enriched.id,
+            status: enriched.status,
+            platform: enriched.platform,
+            lastMessage: enriched.lastMessage,
+            error: enriched.error,
+            runtimePath: enriched.runtimePath,
+            summary: enriched.summary ?? undefined,
+            checkpoint: enriched.ops?.checkpoint ?? undefined,
           }),
           job.replyToMessageId ?? undefined
         ).catch(() => {});

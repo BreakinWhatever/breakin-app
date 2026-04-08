@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   ExternalLink,
@@ -41,6 +42,11 @@ interface OfferDetail {
   matchScore: number | null;
   matchAnalysis: string | null;
   status: string;
+  applyPlatform?: string | null;
+  applyReadiness?: string | null;
+  applyManifestStatus?: string | null;
+  lastPreflightAt?: string | null;
+  preflightError?: string | null;
   postedAt: string | null;
   createdAt: string;
 }
@@ -107,7 +113,15 @@ export default function OfferDetailPage() {
     const res = await fetch(`/api/offers/${offer.id}/apply`, { method: "POST" });
     if (res.ok) {
       const payload = await res.json();
-      if (payload?.offer) {
+      if (payload?.reason === "preflight_queued" || payload?.reason === "preflight_running") {
+        setOffer((prev) => prev ? { ...prev, applyReadiness: "pending_preflight" } : prev);
+        toast.message("Preparation du site d'apply en cours");
+      } else if (payload?.reason === "manual_only" || payload?.reason === "blocked") {
+        if (payload?.offer) {
+          setOffer(payload.offer);
+        }
+        toast.error(payload?.offer?.preflightError || "Cette candidature demande une revue manuelle");
+      } else if (payload?.offer) {
         setOffer(payload.offer);
       } else {
         setOffer((prev) => prev ? { ...prev, status: "apply_requested" } : prev);
@@ -229,6 +243,22 @@ export default function OfferDetailPage() {
 
                 <Separator />
 
+                {offer.applyReadiness && (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <Send className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Fast Path</p>
+                        <p className="text-sm">{formatApplyReadiness(offer.applyReadiness)}</p>
+                      </div>
+                    </div>
+                    {offer.preflightError && (
+                      <p className="text-xs text-destructive">{offer.preflightError}</p>
+                    )}
+                    <Separator />
+                  </>
+                )}
+
                 <a
                   href={offer.url}
                   target="_blank"
@@ -333,4 +363,12 @@ export default function OfferDetailPage() {
       </div>
     </div>
   );
+}
+
+function formatApplyReadiness(value?: string | null) {
+  if (value === "ready") return "Pret";
+  if (value === "pending_preflight") return "Preparation";
+  if (value === "manual_only") return "Manuel";
+  if (value === "blocked") return "Bloque";
+  return value ?? "Inconnu";
 }

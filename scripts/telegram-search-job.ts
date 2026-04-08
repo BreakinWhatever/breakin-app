@@ -9,6 +9,7 @@ import {
   formatSearchProgressForTelegram,
 } from "../src/lib/sourcing/telegram";
 import type { SearchProgress } from "../src/lib/sourcing/types";
+import { buildSearchCheckpoint } from "../src/lib/ops/checkpoints";
 
 interface WorkerArgs {
   jobId: string;
@@ -35,6 +36,12 @@ async function main() {
     status: "running",
     startedAt: new Date().toISOString(),
     pid: process.pid,
+    checkpoint: buildSearchCheckpoint({
+      ...current.progress,
+      phase: "starting",
+      updatedAt: new Date().toISOString(),
+      message: "Recherche lancee",
+    }),
   });
 
   const { runOfferSearch } = await import("../src/lib/sourcing/engine");
@@ -44,6 +51,7 @@ async function main() {
         ...job,
         status: progress.phase === "failed" ? "failed" : "running",
         progress,
+        checkpoint: buildSearchCheckpoint(progress),
       }));
 
       if (!updated) return;
@@ -75,6 +83,16 @@ async function main() {
       llmAssistedOffers: summary.llmAssistedOffers,
       message: "Recherche terminee",
     },
+    checkpoint: buildSearchCheckpoint({
+      ...job.progress,
+      phase: "completed",
+      updatedAt: new Date().toISOString(),
+      offersImported: summary.offersImported,
+      offersFound: summary.offersFound,
+      offersScored: summary.offersScored,
+      llmAssistedOffers: summary.llmAssistedOffers,
+      message: "Recherche terminee",
+    }),
   }));
 
   const completed = await readSearchJobRecord(workspaceDir, args.jobId);
@@ -173,6 +191,12 @@ main().catch(async (error) => {
       updatedAt: new Date().toISOString(),
       message,
     },
+    checkpoint: buildSearchCheckpoint({
+      ...job.progress,
+      phase: "failed",
+      updatedAt: new Date().toISOString(),
+      message,
+    }),
   })).catch(() => {});
   await sendTelegramMessage(
     args.chatId,

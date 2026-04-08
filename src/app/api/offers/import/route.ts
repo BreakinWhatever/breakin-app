@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
+import { queueApplyPreflightForOfferUrls } from "@/lib/apply/preflight";
 import { detectContractType } from "@/lib/offers";
 
 type IncomingOffer = {
@@ -76,6 +77,11 @@ export async function POST(request: NextRequest) {
         skipDuplicates: true,
       });
       createdCount = result.count;
+      await queueApplyPreflightForOfferUrls(
+        process.cwd(),
+        toCreate.map((offer) => offer.url),
+        "import"
+      ).catch(() => {});
     }
 
     // Optional: light update of existing entries (refresh description/postedAt if provided)
@@ -131,4 +137,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

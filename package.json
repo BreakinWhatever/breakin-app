@@ -10,6 +10,7 @@
     "agent:telegram-router": "tsx scripts/telegram-router.ts",
     "apply:run": "tsx scripts/apply-offers.ts run",
     "apply:jobs": "tsx scripts/apply-offers.ts jobs",
+    "apply:preflight": "tsx scripts/apply-preflight-job.ts",
     "source:search": "tsx scripts/source-offers.ts search",
     "test": "vitest run",
     "test:watch": "vitest"

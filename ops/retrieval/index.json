@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "documents": [
+    {
+      "key": "ops/progress",
+      "title": "Operational Progress",
+      "kind": "progress",
+      "path": "ops/PROGRESS.md",
+      "domains": ["apply", "search", "telegram"],
+      "tags": ["ops", "progress", "status"],
+      "summary": "Current state, blockers, and next actions for the BreakIn operations layer."
+    },
+    {
+      "key": "ops/system-map",
+      "title": "BreakIn Ops System Map",
+      "kind": "system_map",
+      "path": "ops/system-map.md",
+      "domains": ["apply", "search", "telegram"],
+      "tags": ["ops", "architecture", "memory"],
+      "summary": "Canonical layers, retrieval order, and runtime boundaries."
+    },
+    {
+      "key": "apply/workday-auth",
+      "title": "Workday Auth Playbook",
+      "kind": "playbook",
+      "path": "ops/playbooks/apply/workday-auth.md",
+      "domains": ["apply"],
+      "tags": ["apply", "workday", "auth", "playbook"],
+      "summary": "Deterministic routing for guest, sign-in, and account-creation branches."
+    },
+    {
+      "key": "search/telegram-status",
+      "title": "Search Telegram Status Playbook",
+      "kind": "playbook",
+      "path": "ops/playbooks/search/search-telegram-status.md",
+      "domains": ["search", "telegram"],
+      "tags": ["search", "telegram", "status"],
+      "summary": "Canonical rendering rules for search checkpoints and Telegram status."
+    },
+    {
+      "key": "telegram/status-runbook",
+      "title": "Telegram Status Runbook",
+      "kind": "runbook",
+      "path": "ops/runbooks/telegram/status.md",
+      "domains": ["telegram", "apply", "search"],
+      "tags": ["telegram", "status", "runbook"],
+      "summary": "Shared ordering and tone rules for compact operational status messages."
+    }
+  ]
+}

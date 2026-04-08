@@ -1,25 +1,13 @@
 import { NextRequest } from "next/server";
-import { createHmac } from "crypto";
+import { isApplyPreflightEnabled } from "@/lib/apply/config";
+import { serializePreflightJob, serializeApplyJob } from "@/lib/apply/payloads";
+import { ensureOfferApplyReady } from "@/lib/apply/preflight";
+import {
+  dispatchApplyPreflightJob,
+  failApplyPreflightDispatch,
+} from "@/lib/apply/preflight-dispatch";
 import { enqueueApplyJob } from "@/lib/apply/service";
-
-const VPS_WEBHOOK = "http://46.225.210.206:9000/hooks/apply-offer";
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET!;
-
-async function triggerVPSApply(jobId: string, offerId: string) {
-  const payload = JSON.stringify({ job_id: jobId, offer_id: offerId });
-  const sig = createHmac("sha256", WEBHOOK_SECRET)
-    .update(payload)
-    .digest("hex");
-
-  await fetch(VPS_WEBHOOK, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Hub-Signature-256": `sha256=${sig}`,
-    },
-    body: payload,
-  }).catch(() => {}); // never throw
-}
+import { dispatchApplyJob, failApplyDispatch } from "@/lib/apply/dispatch";
 
 export async function POST(
   _request: NextRequest,
@@ -27,8 +15,50 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const workspaceDir = process.cwd();
 
-    const queued = await enqueueApplyJob(process.cwd(), {
+    if (isApplyPreflightEnabled()) {
+      const readiness = await ensureOfferApplyReady(workspaceDir, {
+        offerId: id,
+        source: "site",
+      });
+
+      if (!readiness.ready) {
+        if (readiness.job && (readiness.reason === "preflight_queued" || readiness.reason === "preflight_running")) {
+          const dispatch = await dispatchApplyPreflightJob(workspaceDir, readiness.job.id, readiness.offer.id);
+          if (!dispatch.ok && readiness.reason === "preflight_queued") {
+            const message = dispatch.message ?? "Failed to dispatch preflight job";
+            await failApplyPreflightDispatch(readiness.offer.id, readiness.job.id, message);
+            return Response.json(
+              {
+                error: message,
+                preflightJobId: readiness.job.id,
+                offer: {
+                  ...readiness.offer,
+                  applyReadiness: "blocked",
+                  preflightError: message,
+                },
+                reason: "preflight_dispatch_failed",
+              },
+              { status: 502 }
+            );
+          }
+        }
+
+        return Response.json(
+          {
+            offer: readiness.offer,
+            preflightJobId: readiness.job?.id ?? null,
+            preflightPollUrl: readiness.job ? `/api/preflight-jobs/${readiness.job.id}` : null,
+            preflightJob: readiness.job ? await serializePreflightJob(readiness.job) : null,
+            reason: readiness.reason,
+          },
+          { status: readiness.reason === "manual_only" || readiness.reason === "blocked" ? 409 : 202 }
+        );
+      }
+    }
+
+    const queued = await enqueueApplyJob(workspaceDir, {
       offerId: id,
       source: "site",
       llmProvider: "auto",
@@ -48,7 +78,20 @@ export async function POST(
     }
 
     if (queued.created) {
-      await triggerVPSApply(queued.job.id, offer.id);
+      const dispatch = await dispatchApplyJob(workspaceDir, queued.job.id, offer.id);
+      if (!dispatch.ok) {
+        const message = dispatch.message ?? "Failed to dispatch apply job";
+        await failApplyDispatch(offer.id, queued.job.id, message);
+        return Response.json(
+          {
+            error: message,
+            jobId: queued.job.id,
+            offer: { ...offer, status: "apply_failed" },
+            reason: "dispatch_failed",
+          },
+          { status: 502 }
+        );
+      }
     }
 
     return Response.json(
@@ -57,6 +100,7 @@ export async function POST(
         jobId: queued.job.id,
         status: queued.job.status,
         pollUrl: `/api/apply-jobs/${queued.job.id}`,
+        job: await serializeApplyJob(queued.job),
         reason: queued.reason,
       },
       { status: 202 }
