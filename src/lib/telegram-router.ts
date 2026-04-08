@@ -11,6 +11,7 @@ export interface RouterTurn {
 export interface RouterState {
   offset: number;
   chats: Record<string, RouterTurn[]>;
+  processedUpdateIds: number[];
 }
 
 export interface BuildPromptOptions {
@@ -20,10 +21,28 @@ export interface BuildPromptOptions {
   workspaceDir: string;
 }
 
+export const MAX_PROCESSED_UPDATE_IDS = 1024;
+
 export const EMPTY_ROUTER_STATE: RouterState = {
   offset: 0,
   chats: {},
+  processedUpdateIds: [],
 };
+
+export function isUpdateProcessed(state: RouterState, updateId: number): boolean {
+  return state.processedUpdateIds.includes(updateId);
+}
+
+export function markUpdateProcessed(state: RouterState, updateId: number): RouterState {
+  if (state.processedUpdateIds.includes(updateId)) {
+    return state;
+  }
+  const next = [...state.processedUpdateIds, updateId];
+  const trimmed = next.length > MAX_PROCESSED_UPDATE_IDS
+    ? next.slice(next.length - MAX_PROCESSED_UPDATE_IDS)
+    : next;
+  return { ...state, processedUpdateIds: trimmed };
+}
 
 const ANSI_PATTERN =
   // Strip common ANSI escape sequences from CLI output before sending to Telegram.
@@ -94,6 +113,12 @@ export function parseRouterState(raw: string | null | undefined): RouterState {
   try {
     const parsed = JSON.parse(raw) as Partial<RouterState>;
 
+    const processedUpdateIds = Array.isArray(parsed.processedUpdateIds)
+      ? parsed.processedUpdateIds
+          .filter((id): id is number => typeof id === "number" && Number.isFinite(id))
+          .slice(-MAX_PROCESSED_UPDATE_IDS)
+      : [];
+
     return {
       offset: typeof parsed.offset === "number" ? parsed.offset : 0,
       chats: typeof parsed.chats === "object" && parsed.chats !== null
@@ -120,6 +145,7 @@ export function parseRouterState(raw: string | null | undefined): RouterState {
             ])
           )
         : {},
+      processedUpdateIds,
     };
   } catch {
     return EMPTY_ROUTER_STATE;

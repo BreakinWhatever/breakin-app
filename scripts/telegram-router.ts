@@ -1,4 +1,4 @@
-import { closeSync, openSync } from "fs";
+import { closeSync, openSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "fs/promises";
 import { spawn } from "child_process";
 import path from "path";
@@ -8,6 +8,8 @@ import {
   buildAgentPrompt,
   escapeTelegramHtml,
   isAllowedChatId,
+  isUpdateProcessed,
+  markUpdateProcessed,
   normalizeAgentOutput,
   parseAllowedChatIds,
   parseRouterState,
@@ -179,6 +181,68 @@ async function getUpdates(
     timeout: config.pollTimeoutSeconds,
     allowed_updates: ["message"],
   });
+}
+
+interface WebhookInfo {
+  url: string;
+  has_custom_certificate: boolean;
+  pending_update_count: number;
+}
+
+async function getWebhookInfo(config: RuntimeConfig): Promise<WebhookInfo> {
+  return telegramApi<WebhookInfo>(config.botToken, "getWebhookInfo", {});
+}
+
+interface BotMe {
+  id: number;
+  is_bot: boolean;
+  username?: string;
+}
+
+async function getMe(config: RuntimeConfig): Promise<BotMe> {
+  return telegramApi<BotMe>(config.botToken, "getMe", {});
+}
+
+function acquireLock(lockFile: string): void {
+  try {
+    const existing = readFileSync(lockFile, "utf8").trim();
+    const existingPid = Number.parseInt(existing, 10);
+    if (existingPid && existingPid !== process.pid) {
+      let alive = false;
+      try {
+        process.kill(existingPid, 0);
+        alive = true;
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code !== "ESRCH" && code !== "EPERM") {
+          throw err;
+        }
+        alive = code === "EPERM"; // EPERM means process exists but we can't signal it
+      }
+      if (alive) {
+        throw new Error(
+          `telegram-router already running (pid=${existingPid}). `
+            + `Lock file: ${lockFile}. `
+            + `If this is wrong, delete the lock file and retry.`
+        );
+      }
+    }
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw err;
+  }
+  writeFileSync(lockFile, String(process.pid), { flag: "w" });
+}
+
+function releaseLock(lockFile: string): void {
+  try {
+    const existing = readFileSync(lockFile, "utf8").trim();
+    if (Number.parseInt(existing, 10) === process.pid) {
+      unlinkSync(lockFile);
+    }
+  } catch {
+    // ignore
+  }
 }
 
 async function sendChatAction(
@@ -699,10 +763,49 @@ function appendReplyToState(
 
 async function main(): Promise<void> {
   const config = buildConfig();
+
+  // Refuse to start if a webhook is configured: webhook + polling at the same time
+  // would deliver every update twice (once via the webhook, once via getUpdates).
+  const webhookInfo = await getWebhookInfo(config);
+  if (webhookInfo.url) {
+    console.error(
+      `[telegram-router] FATAL: a webhook is configured (${webhookInfo.url}). `
+        + "Polling and webhook are mutually exclusive on the same bot. "
+        + "Run `curl -s -X POST https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/deleteWebhook` "
+        + "to clear it, then restart the router."
+    );
+    process.exit(2);
+  }
+
+  // Refuse to start if another fresh router instance holds the lock.
+  // This is the primary defense against the dual-reply bug (two pollers on
+  // the same bot token both reply to the same update_id).
+  const lockFile = `${config.stateFile}.lock`;
+  await mkdir(path.dirname(lockFile), { recursive: true });
+  acquireLock(lockFile);
+
+  const releaseLockOnExit = (): void => releaseLock(lockFile);
+  process.on("exit", releaseLockOnExit);
+  process.on("SIGINT", () => {
+    releaseLockOnExit();
+    process.exit(0);
+  });
+  process.on("SIGTERM", () => {
+    releaseLockOnExit();
+    process.exit(0);
+  });
+  process.on("uncaughtException", (err) => {
+    console.error(`[telegram-router] uncaughtException: ${err.stack ?? err.message}`);
+    releaseLockOnExit();
+    process.exit(1);
+  });
+
   let state = await loadState(config.stateFile);
 
+  const me = await getMe(config).catch(() => null);
   console.log(
-    `[telegram-router] starting in ${config.workspaceDir} using state ${config.stateFile}`
+    `[telegram-router] starting in ${config.workspaceDir} using state ${config.stateFile} `
+      + `(bot=${me?.username ?? "unknown"}, pid=${process.pid}, lock=${lockFile})`
   );
 
   for (;;) {
@@ -710,8 +813,13 @@ async function main(): Promise<void> {
       const updates = await getUpdates(config, state.offset);
 
       for (const update of updates) {
-        const message = update.message;
-        if (!message) {
+        // Defense against dual-handling: if we've already replied to this
+        // update_id (e.g. crash mid-loop, or a stale duplicate poller racing
+        // us before we acquired the lock), skip it.
+        if (isUpdateProcessed(state, update.update_id)) {
+          console.warn(
+            `[telegram-router] skipping already-processed update_id=${update.update_id}`
+          );
           state = {
             ...state,
             offset: update.update_id + 1,
@@ -720,7 +828,19 @@ async function main(): Promise<void> {
           continue;
         }
 
+        const message = update.message;
+        if (!message) {
+          state = {
+            ...state,
+            offset: update.update_id + 1,
+          };
+          state = markUpdateProcessed(state, update.update_id);
+          await saveState(config.stateFile, state);
+          continue;
+        }
+
         state = await handleMessage(config, state, message);
+        state = markUpdateProcessed(state, update.update_id);
         state = {
           ...state,
           offset: update.update_id + 1,

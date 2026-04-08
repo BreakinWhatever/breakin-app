@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   appendHistory,
   buildAgentPrompt,
+  EMPTY_ROUTER_STATE,
+  isUpdateProcessed,
+  markUpdateProcessed,
+  MAX_PROCESSED_UPDATE_IDS,
   normalizeAgentOutput,
   parseAllowedChatIds,
   parseRouterState,
@@ -66,7 +70,7 @@ describe("telegram-router helpers", () => {
   });
 
   it("keeps only the most recent turns per chat", () => {
-    const initial: RouterState = { offset: 0, chats: {} };
+    const initial: RouterState = { offset: 0, chats: {}, processedUpdateIds: [] };
     const next = appendHistory(
       appendHistory(
         appendHistory(
@@ -88,5 +92,53 @@ describe("telegram-router helpers", () => {
       { role: "assistant", text: "2", at: "b", agent: "claude" },
       { role: "user", text: "3", at: "c" },
     ]);
+  });
+
+  it("tracks processed update ids and detects duplicates", () => {
+    let state = EMPTY_ROUTER_STATE;
+    expect(isUpdateProcessed(state, 100)).toBe(false);
+
+    state = markUpdateProcessed(state, 100);
+    expect(isUpdateProcessed(state, 100)).toBe(true);
+    expect(state.processedUpdateIds).toEqual([100]);
+
+    // Marking the same id again is idempotent
+    state = markUpdateProcessed(state, 100);
+    expect(state.processedUpdateIds).toEqual([100]);
+
+    state = markUpdateProcessed(state, 101);
+    state = markUpdateProcessed(state, 102);
+    expect(state.processedUpdateIds).toEqual([100, 101, 102]);
+  });
+
+  it("caps processed update ids to MAX_PROCESSED_UPDATE_IDS", () => {
+    let state = EMPTY_ROUTER_STATE;
+    for (let i = 0; i < MAX_PROCESSED_UPDATE_IDS + 50; i++) {
+      state = markUpdateProcessed(state, i);
+    }
+    expect(state.processedUpdateIds.length).toBe(MAX_PROCESSED_UPDATE_IDS);
+    // Oldest IDs are dropped, newest are kept
+    expect(state.processedUpdateIds[0]).toBe(50);
+    expect(state.processedUpdateIds[state.processedUpdateIds.length - 1]).toBe(
+      MAX_PROCESSED_UPDATE_IDS + 49
+    );
+    expect(isUpdateProcessed(state, 0)).toBe(false);
+    expect(isUpdateProcessed(state, MAX_PROCESSED_UPDATE_IDS + 49)).toBe(true);
+  });
+
+  it("parses processed update ids defensively from stored state", () => {
+    const state = parseRouterState(
+      JSON.stringify({
+        offset: 5,
+        chats: {},
+        processedUpdateIds: [1, 2, 3, "bogus", null, 4],
+      })
+    );
+    expect(state.processedUpdateIds).toEqual([1, 2, 3, 4]);
+  });
+
+  it("returns empty processed update ids array on legacy state without the field", () => {
+    const state = parseRouterState(JSON.stringify({ offset: 5, chats: {} }));
+    expect(state.processedUpdateIds).toEqual([]);
   });
 });
