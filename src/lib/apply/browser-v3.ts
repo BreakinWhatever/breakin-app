@@ -324,6 +324,34 @@ async function clickByHints(hints) {
   return false;
 }
 
+async function clickByHintsInVisibleForm(hints) {
+  const forms = page.locator("form");
+  const formCount = await forms.count().catch(() => 0);
+
+  for (let formIndex = 0; formIndex < formCount; formIndex += 1) {
+    const form = forms.nth(formIndex);
+    if (!(await form.isVisible().catch(() => false))) continue;
+
+    for (const hint of hints || []) {
+      const regex = new RegExp(escapeRegex(hint), "i");
+      const candidates = [
+        form.getByRole("button", { name: regex }),
+        form.getByRole("link", { name: regex }),
+        form.getByText(regex),
+      ];
+
+      for (const locator of candidates) {
+        const target = await firstVisible(locator);
+        if (!target) continue;
+        await target.click().catch(() => {});
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 async function resolveField(hints) {
   for (const hint of hints || []) {
     const regex = new RegExp(escapeRegex(hint), "i");
@@ -472,13 +500,14 @@ async function runAuthBranch(branch) {
   if (branch === "existing_account_sign_in") {
     const passwordCount = await visiblePasswordCount();
     if (passwordCount !== 1) {
+      await clickByHintsInVisibleForm(payload.plan.buttonHints.login);
       await clickByHints(payload.plan.buttonHints.login);
-      await waitForSettled(700);
+      await waitForSettled(1200);
     }
     await fillByHints(fields.email, payload.profile.email);
     await fillByHints(fields.password, payload.profile.accountPassword);
     await submitAuthBranch(branch);
-    await waitForSettled(1200);
+    await waitForSettled(1600);
     return true;
   }
 
