@@ -1,23 +1,3 @@
-// Cold Mail Agent IPC wrapper.
-//
-// Dispatches a single LLM task to the breakin-cold-mail-agent tmux session
-// and waits for the result file to appear. The agent is a long-running
-// interactive Claude Code session that reads task files from
-// `<agentDir>/tasks/`, executes them (calling Opus or Sonnet via the
-// model-selection skill), and writes results to `<agentDir>/results/`.
-//
-// Protocol:
-//   1. Generate taskId
-//   2. Write input JSON to <agentDir>/tasks/<taskId>.json
-//   3. tmux send-keys -t breakin-cold-mail-agent "task: <name> <taskId>" C-m
-//   4. Poll <agentDir>/results/<taskId>.json every pollIntervalMs up to timeoutMs
-//   5. Read result, delete both files, return parsed JSON
-//
-// On timeout: throws AgentTaskTimeoutError. Caller handles retry/log/alert.
-//
-// Spec: docs/superpowers/specs/2026-04-09-cold-mailing-robustness-design.md
-// section 5 "Agent IPC — concrete protocol".
-
 import { spawnSync } from "child_process";
 import {
   existsSync,
@@ -70,14 +50,23 @@ function newTaskId(): string {
   return `${Date.now()}-${randomBytes(4).toString("hex")}`;
 }
 
+/**
+ * Robustly send a command to the tmux session.
+ * 1. Clear any pending input with Ctrl-C
+ * 2. Send the actual task command
+ * 3. Submit with C-m
+ */
 function sendToTmux(message: string): void {
+  // 1. Clear prompt first (C-c)
+  spawnSync("tmux", ["send-keys", "-t", TMUX_SESSION, "C-c", "C-c"], { stdio: "ignore" });
+  
+  // 2. Send the message and submit
   const result = spawnSync(
     "tmux",
-    // C-m submits reliably across Claude, Codex, and Gemini TUIs. Plain
-    // "Enter" can remain buffered in Gemini's prompt line.
     ["send-keys", "-t", TMUX_SESSION, message, "C-m"],
     { stdio: "pipe" }
   );
+  
   if (result.status !== 0) {
     const err = result.stderr?.toString() ?? "";
     throw new AgentTaskDispatchError(
@@ -112,9 +101,8 @@ export async function dispatchTask<TIn, TOut>(
   try {
     sendToTmux(`task: ${taskName} ${taskId}`);
   } catch (error) {
-    // Cleanup on send failure so we don't leave orphan task files
     try {
-      unlinkSync(taskFile);
+      if (existsSync(taskFile)) unlinkSync(taskFile);
     } catch {}
     throw error;
   }
@@ -122,20 +110,26 @@ export async function dispatchTask<TIn, TOut>(
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (existsSync(resultFile)) {
+      // Small buffer to ensure file is fully written
+      await sleep(200);
       const raw = readFileSync(resultFile, "utf-8");
-      const parsed = JSON.parse(raw) as TOut;
       try {
-        unlinkSync(resultFile);
-      } catch {}
-      try {
-        unlinkSync(taskFile);
-      } catch {}
-      return parsed;
+        const parsed = JSON.parse(raw) as TOut;
+        try {
+          unlinkSync(resultFile);
+        } catch {}
+        try {
+          unlinkSync(taskFile);
+        } catch {}
+        return parsed;
+      } catch (e) {
+        // Continue polling if JSON is incomplete/malformed
+        continue;
+      }
     }
     await sleep(pollIntervalMs);
   }
 
-  // Timeout — leave files in place for post-mortem debugging
   throw new AgentTaskTimeoutError(taskId, taskName, timeoutMs);
 }
 
